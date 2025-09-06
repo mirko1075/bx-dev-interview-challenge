@@ -10,6 +10,9 @@ export default defineConfig({
       /__tests__/,
       /\.stories\.(tsx?|jsx?)$/,
     ],
+    alias: {
+      '@': './src',
+    },
   },
   html: {
     meta: {
