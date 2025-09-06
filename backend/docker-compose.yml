@@ -5,6 +5,7 @@ services:
       dockerfile: dockerfile
     environment:
       - NODE_ENV=production
+      - JWT_SECRET=ambarabaciccicocco
       - DATABASE_HOST=postgres
       - DATABASE_PORT=5432
       - DATABASE_USER=postgres

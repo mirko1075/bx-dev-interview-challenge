@@ -6,10 +6,15 @@ import { AppService } from './services/app/app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { database } from './configs/database';
+import { AuthModule } from './auth/auth.module';
+import { auth } from './configs/auth';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, load: [getCommonConfig, database] }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [getCommonConfig, auth, database],
+    }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -24,6 +29,7 @@ import { database } from './configs/database';
       }),
       inject: [ConfigService],
     }),
+    AuthModule,
   ],
 
   controllers: [AppController],
