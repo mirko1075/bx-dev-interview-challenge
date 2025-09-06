@@ -5,6 +5,11 @@ services:
       dockerfile: dockerfile
     environment:
       - NODE_ENV=production
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=password
+      - DATABASE_NAME=bonusx_db
       - DATABASE_URL=postgresql://postgres:password@database.local:5432/bonusx_db
       - S3_ENDPOINT=http://storage.local:9000
       - S3_ACCESS_KEY_ID=NINJA_ACCESS_KEY
