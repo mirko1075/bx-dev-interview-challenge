@@ -18,7 +18,7 @@ import { User } from './entities/user.entity';
         username: configService.get<string>('database.user'),
         password: configService.get<string>('database.password'),
         database: configService.get<string>('database.name'),
-        entities: [User],
+        entities: [User, File],
         synchronize: true,
       }),
       inject: [ConfigService],
