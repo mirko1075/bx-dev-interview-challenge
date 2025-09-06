@@ -8,9 +8,11 @@ import { User } from './entities/user.entity';
 import { database } from './configs/database';
 import { AuthModule } from './auth/auth.module';
 import { auth } from './configs/auth';
+import { PassportModule } from '@nestjs/passport/dist/passport.module';
 
 @Module({
   imports: [
+    PassportModule.register({ defaultStrategy: 'jwt' }),
     ConfigModule.forRoot({
       isGlobal: true,
       load: [getCommonConfig, auth, database],
