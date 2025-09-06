@@ -5,10 +5,11 @@ import { AppController } from './controllers/app.controller';
 import { AppService } from './services/app/app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
+import { database } from './configs/database';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, load: [getCommonConfig] }),
+    ConfigModule.forRoot({ isGlobal: true, load: [getCommonConfig, database] }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
