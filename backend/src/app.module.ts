@@ -9,6 +9,7 @@ import { database } from './configs/database';
 import { AuthModule } from './auth/auth.module';
 import { auth } from './configs/auth';
 import { PassportModule } from '@nestjs/passport/dist/passport.module';
+import { FilesModule } from './files/files.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { PassportModule } from '@nestjs/passport/dist/passport.module';
       inject: [ConfigService],
     }),
     AuthModule,
+    FilesModule,
   ],
 
   controllers: [AppController],
