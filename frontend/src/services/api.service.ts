@@ -89,9 +89,16 @@ export const uploadWithProgress = (url: string, file: File, onProgress: Progress
       reject(new Error('An error occurred during the upload.'));
     };
 
-    // Impostiamo esplicitamente il Content-Type per matchare la firma
-    xhr.setRequestHeader('Content-Type', 'binary/octet-stream');
-    console.log('📋 Set Content-Type header to: binary/octet-stream');
+    const urlParams = new URLSearchParams(url.split('?')[1]);
+    const expectedContentType = urlParams.get('Content-Type');
+    
+    if (expectedContentType) {
+      xhr.setRequestHeader('Content-Type', expectedContentType);
+      console.log('📋 Set Content-Type header to match signature:', expectedContentType);
+    } else {
+      xhr.setRequestHeader('Content-Type', file.type);
+      console.log('📋 Set Content-Type header to file type:', file.type);
+    }
     
     console.log('📤 Sending file data...');
     xhr.send(file);

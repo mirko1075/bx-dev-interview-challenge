@@ -1,7 +1,7 @@
     import React, { useState } from 'react';
     import { Button, Box, Typography, LinearProgress, Alert } from '@mui/material';
     import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-    import { getPresignedUploadUrl, uploadFileToS3 } from '@/services/files.service';
+    import { uploadFileToBackend } from '@/services/files.service';
 
     export const UploadForm = () => {
       const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -30,14 +30,11 @@
         setUploadProgress(0); // Reset progress
 
         try {
-          let { uploadUrl } = await getPresignedUploadUrl({
-            filename: selectedFile.name,
-            fileType: selectedFile.type,
-          });
+          // Nuovo approccio: upload diretto al backend
+          const formData = new FormData();
+          formData.append('file', selectedFile);
 
-          // 2. Carica il file direttamente su S3 usando l'URL ottenuto
-          uploadUrl = uploadUrl.replace('storage.local', 'localhost');
-          await uploadFileToS3(uploadUrl, selectedFile, (progress) => {
+          const response = await uploadFileToBackend(formData, (progress) => {
             setUploadProgress(progress);
           });
 

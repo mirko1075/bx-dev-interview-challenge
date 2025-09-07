@@ -15,7 +15,6 @@ export class S3Service {
   private readonly logger = new Logger(S3Service.name);
 
   constructor(private readonly configService: ConfigService) {
-    // Configurazione S3 per ambiente Docker con S3 Ninja
     const endpoint = configService.get<string>('S3_ENDPOINT');
     const accessKeyId = configService.get<string>('S3_ACCESS_KEY_ID');
     const secretAccessKey = configService.get<string>('S3_SECRET_ACCESS_KEY');
@@ -30,13 +29,12 @@ export class S3Service {
       secretAccessKey: secretAccessKey,
       s3ForcePathStyle: true,
       signatureVersion: 'v4',
-      region: 'us-east-1', // Regione fissa per S3 Ninja
+      region: 'us-east-1',
     });
     this.bucket =
       configService.get<string>('S3_BUCKET_NAME') || 'my-app-bucket';
   }
 
-  // NUOVO METODO: Configura il CORS sul bucket all'avvio
   async configureCors() {
     const corsParams: S3.Types.PutBucketCorsRequest = {
       Bucket: this.bucket,
@@ -45,9 +43,8 @@ export class S3Service {
           {
             AllowedHeaders: ['*'],
             AllowedMethods: ['GET', 'PUT', 'POST', 'DELETE'],
-            // Permetti le richieste sia dal dev server (3001) che da un eventuale container frontend (8080)
             AllowedOrigins: ['http://localhost:3001', 'http://localhost:8080'],
-            ExposeHeaders: ['ETag'], // Permette al browser di leggere l'header ETag dopo l'upload
+            ExposeHeaders: ['ETag'],
             MaxAgeSeconds: 3000,
           },
         ],
@@ -55,11 +52,9 @@ export class S3Service {
     };
 
     try {
-      // Tenta di creare il bucket. Se esiste già, non fa nulla.
       await this.s3.createBucket({ Bucket: this.bucket }).promise();
       this.logger.log(`Bucket ${this.bucket} created or already exists.`);
 
-      // Imposta la policy CORS
       await this.s3.putBucketCors(corsParams).promise();
       this.logger.log(
         `Successfully configured CORS for bucket: ${this.bucket}`,
@@ -85,7 +80,6 @@ export class S3Service {
           (error as { stack?: string }).stack,
         );
       } else {
-        // Se il bucket esiste già, proviamo comunque a impostare il CORS
         try {
           await this.s3.putBucketCors(corsParams).promise();
           this.logger.log(
@@ -117,13 +111,11 @@ export class S3Service {
       `Generating presigned URL for ${filename}, contentType: ${finalContentType}`,
     );
 
-    // STRATEGIA: Usiamo 'binary/octet-stream' per evitare conflitti di Content-Type
-    // Il browser accetterà questo tipo e la firma sarà consistente
     const params = {
       Bucket: this.bucket,
       Key: s3Key,
       Expires: 60 * 5,
-      ContentType: 'binary/octet-stream', // Tipo generico che funziona per tutti i file
+      ContentType: finalContentType,
     };
 
     let uploadUrl = await this.s3.getSignedUrlPromise('putObject', params);
@@ -136,49 +128,30 @@ export class S3Service {
     return { uploadUrl, key: s3Key };
   }
 
-  // Metodo alternativo che non usa Content-Type nella firma (per S3 Ninja)
-  async getPresignedUploadUrlAlternative(
+  async uploadFileDirect(
+    buffer: Buffer,
     filename: string,
-  ): Promise<PresignedUrlResponse> {
+    contentType: string,
+  ): Promise<string> {
     const s3Key = `${uuid()}-${filename}`;
 
-    // Configurazione S3 specifica per S3 Ninja senza Content-Type
-    const s3ForNinja = new S3({
-      endpoint: this.configService.get<string>('S3_ENDPOINT'),
-      accessKeyId: this.configService.get<string>('S3_ACCESS_KEY_ID'),
-      secretAccessKey: this.configService.get<string>('S3_SECRET_ACCESS_KEY'),
-      s3ForcePathStyle: true,
-      signatureVersion: 'v4',
-      region: 'us-east-1', // Regione esplicita per S3 Ninja
-    });
+    this.logger.log(
+      `Uploading file directly: ${filename}, contentType: ${contentType}`,
+    );
 
-    const params = {
-      Bucket: this.bucket,
-      Key: s3Key,
-      Expires: 60 * 5,
-      // NON includiamo ContentType nella firma per S3 Ninja
-    };
+    await this.s3
+      .putObject({
+        Bucket: this.bucket,
+        Key: s3Key,
+        Body: buffer,
+        ContentType: contentType,
+      })
+      .promise();
 
-    try {
-      let uploadUrl = await s3ForNinja.getSignedUrlPromise('putObject', params);
-      uploadUrl = uploadUrl.replace('storage.local', 'localhost');
-
-      this.logger.debug(
-        `Generated alternative presigned URL for ${filename}:`,
-        {
-          key: s3Key,
-          urlLength: uploadUrl.length,
-        },
-      );
-
-      return { uploadUrl, key: s3Key };
-    } catch (error) {
-      this.logger.error('Error generating alternative presigned URL:', error);
-      throw error;
-    }
+    this.logger.log(`File uploaded successfully: ${s3Key}`);
+    return s3Key;
   }
 
-  // Metodo per testare la connessione S3
   async testConnection(): Promise<boolean> {
     try {
       await this.s3.listBuckets().promise();

@@ -43,13 +43,15 @@ export class DebugController {
   @Post('test-presigned-url')
   async testPresignedUrl(@Body() body: { filename: string; fileType: string }) {
     try {
-      const { filename } = body;
+      const { filename, fileType } = body;
 
-      // Test primary method
       let primaryResult;
       let primaryError;
       try {
-        primaryResult = await this.s3Service.getPresignedUploadUrl(filename);
+        primaryResult = await this.s3Service.getPresignedUploadUrl(
+          filename,
+          fileType,
+        );
         this.logger.debug(`Primary method succeeded for ${filename}`);
       } catch (error) {
         primaryError = (error as Error).message;
@@ -59,22 +61,7 @@ export class DebugController {
         );
       }
 
-      // Test alternative method if available
-      let alternativeResult;
-      let alternativeError;
-      try {
-        alternativeResult =
-          await this.s3Service.getPresignedUploadUrlAlternative(filename);
-        this.logger.debug(`Alternative method succeeded for ${filename}`);
-      } catch (error) {
-        alternativeError = (error as Error).message;
-        this.logger.warn(
-          `Alternative method failed for ${filename}:`,
-          (error as Error).message,
-        );
-      }
-
-      const hasSuccessfulMethod = primaryResult || alternativeResult;
+      const hasSuccessfulMethod = primaryResult;
 
       return {
         success: !!hasSuccessfulMethod,
@@ -89,22 +76,8 @@ export class DebugController {
                 primaryResult.uploadUrl.includes('storage.local'),
             }
           : { error: primaryError },
-        alternative: alternativeResult
-          ? {
-              url: alternativeResult.uploadUrl.substring(0, 100) + '...',
-              key: alternativeResult.key,
-              urlLength: alternativeResult.uploadUrl.length,
-              containsSignature:
-                alternativeResult.uploadUrl.includes('Signature='),
-              containsExpires: alternativeResult.uploadUrl.includes('Expires='),
-              hasStorageLocal:
-                alternativeResult.uploadUrl.includes('storage.local'),
-            }
-          : { error: alternativeError },
         advice: hasSuccessfulMethod
-          ? this.generateAdvice(
-              primaryResult?.uploadUrl || alternativeResult?.uploadUrl || '',
-            )
+          ? this.generateAdvice(primaryResult?.uploadUrl || '')
           : [
               'Both URL generation methods failed',
               'Check S3 Ninja container status',
@@ -173,7 +146,6 @@ export class DebugController {
     let overallSuccess = true;
 
     try {
-      // Test 1: Environment check
       const envCheck = this.checkEnvironment();
       validationResults.push({
         test: 'Environment Variables',
@@ -182,7 +154,6 @@ export class DebugController {
       });
       if (!envCheck.success) overallSuccess = false;
 
-      // Test 2: S3 Connection
       const connectionCheck = await this.testS3Connection();
       validationResults.push({
         test: 'S3 Connection',
@@ -191,7 +162,6 @@ export class DebugController {
       });
       if (!connectionCheck.success) overallSuccess = false;
 
-      // Test 3: Presigned URL Generation
       const urlCheck = await this.testPresignedUrl(body);
       validationResults.push({
         test: 'Presigned URL Generation',
@@ -200,13 +170,9 @@ export class DebugController {
       });
       if (!urlCheck.success) overallSuccess = false;
 
-      // Test 4: URL Structure Analysis
-      if (
-        urlCheck.success &&
-        (urlCheck.primary?.url || urlCheck.alternative?.url)
-      ) {
-        const testUrl = urlCheck.primary?.url || urlCheck.alternative?.url;
-        const urlAnalysis = this.analyzePresignedUrl(testUrl + 'dummy-params'); // Add dummy to make it a complete URL for analysis
+      if (urlCheck.success && urlCheck.primary?.url) {
+        const testUrl = urlCheck.primary?.url;
+        const urlAnalysis = this.analyzePresignedUrl(testUrl + 'dummy-params');
         validationResults.push({
           test: 'URL Structure Analysis',
           success: urlAnalysis.isValid,

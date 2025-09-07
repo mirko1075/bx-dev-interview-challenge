@@ -15,7 +15,6 @@ export class FilesService {
 
   async generatePresignedUrl(filename: string, fileType: string, user: User) {
     try {
-      // Passiamo il fileType al metodo per includere Content-Type nella firma
       const { uploadUrl, key } = await this.s3Service.getPresignedUploadUrl(
         filename,
         fileType,
@@ -27,32 +26,43 @@ export class FilesService {
         s3Key: key,
         mimetype: fileType,
         user,
-        size: 0, // Lo aggiorneremo in un secondo momento se necessario
+        size: 0,
       });
       await this.fileRepository.save(newFile);
 
       return { uploadUrl, file: newFile };
     } catch (error) {
-      // Se il metodo principale fallisce, proviamo quello alternativo
       console.warn('Primary method failed, trying alternative:', error);
-      try {
-        const { uploadUrl, key } =
-          await this.s3Service.getPresignedUploadUrlAlternative(filename);
+    }
+  }
 
-        const newFile = this.fileRepository.create({
-          filename,
-          s3Key: key,
-          mimetype: fileType,
-          user,
-          size: 0,
-        });
-        await this.fileRepository.save(newFile);
+  async uploadFileDirect(file: any, user: User) {
+    try {
+      // Upload direttamente a S3 tramite backend
+      const key = await this.s3Service.uploadFileDirect(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+      );
 
-        return { uploadUrl, file: newFile };
-      } catch (alternativeError) {
-        console.error('Both methods failed:', alternativeError);
-        throw alternativeError;
-      }
+      // Salva i metadati nel database
+      const newFile = this.fileRepository.create({
+        filename: file.originalname,
+        s3Key: key,
+        mimetype: file.mimetype,
+        user,
+        size: file.size,
+      });
+      await this.fileRepository.save(newFile);
+
+      return {
+        success: true,
+        file: newFile,
+        message: `File ${file.originalname} uploaded successfully`,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to upload file: ${errorMessage}`);
     }
   }
 }
