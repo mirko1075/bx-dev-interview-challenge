@@ -106,4 +106,57 @@ export class S3Service {
     uploadUrl = uploadUrl.replace('storage.local', 'localhost');
     return { uploadUrl, key: s3Key };
   }
+
+  // Metodo alternativo che non usa Content-Type nella firma (per S3 Ninja)
+  async getPresignedUploadUrlAlternative(
+    filename: string,
+  ): Promise<PresignedUrlResponse> {
+    const s3Key = `${uuid()}-${filename}`;
+
+    // Configurazione S3 specifica per S3 Ninja senza Content-Type
+    const s3ForNinja = new S3({
+      endpoint: this.configService.get<string>('S3_ENDPOINT'),
+      accessKeyId: this.configService.get<string>('S3_ACCESS_KEY_ID'),
+      secretAccessKey: this.configService.get<string>('S3_SECRET_ACCESS_KEY'),
+      s3ForcePathStyle: true,
+      signatureVersion: 'v4',
+      region: 'us-east-1', // Regione esplicita per S3 Ninja
+    });
+
+    const params = {
+      Bucket: this.bucket,
+      Key: s3Key,
+      Expires: 60 * 5,
+      // NON includiamo ContentType nella firma per S3 Ninja
+    };
+
+    try {
+      let uploadUrl = await s3ForNinja.getSignedUrlPromise('putObject', params);
+      uploadUrl = uploadUrl.replace('storage.local', 'localhost');
+
+      this.logger.debug(
+        `Generated alternative presigned URL for ${filename}:`,
+        {
+          key: s3Key,
+          urlLength: uploadUrl.length,
+        },
+      );
+
+      return { uploadUrl, key: s3Key };
+    } catch (error) {
+      this.logger.error('Error generating alternative presigned URL:', error);
+      throw error;
+    }
+  }
+
+  // Metodo per testare la connessione S3
+  async testConnection(): Promise<boolean> {
+    try {
+      await this.s3.listBuckets().promise();
+      return true;
+    } catch (error) {
+      this.logger.error('S3 connection test failed:', error);
+      return false;
+    }
+  }
 }

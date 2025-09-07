@@ -68,7 +68,10 @@ export const uploadWithProgress = (url: string, file: File, onProgress: Progress
       reject(new Error('An error occurred during the upload.'));
     };
 
-    xhr.setRequestHeader('Content-Type', file.type);
+    // RIMUOVIAMO IL CONTENT-TYPE HEADER per compatibilità S3 Ninja
+    // L'URL pre-firmato può includere Content-Type nei parametri query se necessario
+    // xhr.setRequestHeader('Content-Type', file.type);
+    
     xhr.send(file);
   });
 };

@@ -9,6 +9,7 @@ import { S3Service } from './s3.service';
   imports: [TypeOrmModule.forFeature([File])],
   controllers: [FilesController],
   providers: [FilesService, S3Service],
+  exports: [FilesService, S3Service], // Esportiamo i servizi per uso in altri moduli
 })
 export class FilesModule implements OnModuleInit {
   constructor(private readonly s3Service: S3Service) {}
