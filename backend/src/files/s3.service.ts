@@ -18,7 +18,6 @@ export class S3Service {
   }
 
   async getPresignedUploadUrl(filename: string, fileType: string) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     const s3Key = `${uuid()}-${filename}`;
     const bucket = this.configService.get<string>('S3_BUCKET_NAME');
 
