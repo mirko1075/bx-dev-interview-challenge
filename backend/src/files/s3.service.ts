@@ -3,6 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { S3 } from 'aws-sdk';
 import { v4 as uuid } from 'uuid';
 
+interface PresignedUrlResponse {
+  uploadUrl: string;
+  key: string;
+}
+
 @Injectable()
 export class S3Service {
   private readonly s3: S3;
@@ -17,7 +22,10 @@ export class S3Service {
     });
   }
 
-  async getPresignedUploadUrl(filename: string, fileType: string) {
+  async getPresignedUploadUrl(
+    filename: string,
+    fileType: string,
+  ): Promise<PresignedUrlResponse> {
     const s3Key = `${uuid()}-${filename}`;
     const bucket = this.configService.get<string>('S3_BUCKET_NAME');
 
