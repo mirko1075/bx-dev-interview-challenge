@@ -1,12 +1,13 @@
 import React, { createContext, useState, useContext, FC, PropsWithChildren, useEffect } from 'react';
-import * as authService from '../services/auth.service';
-import { LoginCredentials } from '../services/auth.service';
+import * as authService from '@/services/auth.service';
+import { LoginCredentials } from '@/services/auth.service';
 
 interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
+  register: (credentials: LoginCredentials) => Promise<void>;
   logout: () => void;
 }
 
@@ -30,13 +31,17 @@ export const AuthProvider: FC<PropsWithChildren> = ({ children }) => {
     localStorage.setItem('token', accessToken);
   };
 
+  const register = async (credentials: LoginCredentials) => {
+    await authService.register(credentials);
+  };
+
   const logout = () => {
     setToken(null);
     localStorage.removeItem('token');
   };
 
   return (
-    <AuthContext.Provider value={{ token, isAuthenticated: !!token, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ token, isAuthenticated: !!token, isLoading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

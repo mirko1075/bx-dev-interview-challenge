@@ -11,9 +11,24 @@ import {
 } from "@mui/material";
 import theme from "./theme";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-import { FC } from "react";
+import { FC, useState } from "react";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LoginPage } from "./pages/LoginPage";
+import { RegisterPage } from "./pages/RegisterPage";
+
+export const AuthPage = () => {
+  const [showRegister, setShowRegister] = useState(false);
+
+  const toggleView = () => {
+    setShowRegister(!showRegister);
+  };
+
+  if (showRegister) {
+    return <RegisterPage onToggle={toggleView} />;
+  }
+
+  return <LoginPage onToggle={toggleView} />;
+};
 
 const AppRouter: FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -26,21 +41,21 @@ const AppRouter: FC = () => {
     );
   }
 
-  return isAuthenticated ? <DashboardPage /> : <LoginPage />;
+  return isAuthenticated ? <DashboardPage /> : <AuthPage />;
 };
 
 function App() {
 
 
   return (
-     <StyledEngineProvider injectFirst>
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <AuthProvider>
-        <AppRouter />
-      </AuthProvider>
-    </ThemeProvider>
-  </StyledEngineProvider>
+    <StyledEngineProvider injectFirst>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <AuthProvider>
+          <AppRouter />
+        </AuthProvider>
+      </ThemeProvider>
+    </StyledEngineProvider>
   );
 }
 
