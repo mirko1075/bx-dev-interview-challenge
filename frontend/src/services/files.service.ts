@@ -1,32 +1,21 @@
-import api from './api.service';
-import axios from 'axios'; 
+import { api, uploadWithProgress } from './api.service';
+import { GetPresignedUrlPayload, IFile, PresignedUrlResponse } from '@/types';
 
-interface GetPresignedUrlPayload {
-  filename: string;
-  fileType: string;
-}
-
-interface PresignedUrlResponse {
-  uploadUrl: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  file: any; //TODO define type
-}
 
 export const getPresignedUploadUrl = async (
   payload: GetPresignedUrlPayload,
 ): Promise<PresignedUrlResponse> => {
-  const response = await api.post<PresignedUrlResponse>(
-    '/files/presigned-url',
-    payload,
-  );
-  return response.data;
+  return api.post<PresignedUrlResponse>('/files/presigned-url', payload);
 };
 
-export const uploadFileToS3 = async (uploadUrl: string, file: File) => {
-  await axios.put(uploadUrl, file, {
-    headers: {
-      'Content-Type': file.type,
-    },
-  });
-};
+export { uploadWithProgress };
 
+export const getFiles = async (): Promise<IFile[]> => {
+  return api.get<IFile[]>('/files');
+}
+
+export const getDownloadUrl = async (fileId: string): Promise<{ downloadUrl: string }> => {
+  return api.get<{ downloadUrl: string }>(`/files/${fileId}/download`);
+}
+
+export const uploadFileToS3 = uploadWithProgress;
