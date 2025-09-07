@@ -14,10 +14,8 @@ export class FilesService {
   ) {}
 
   async generatePresignedUrl(filename: string, fileType: string, user: User) {
-    const { uploadUrl, key } = await this.s3Service.getPresignedUploadUrl(
-      filename,
-      fileType,
-    );
+    const { uploadUrl, key } =
+      await this.s3Service.getPresignedUploadUrl(filename);
 
     // Pre-salviamo i metadati del file nel database
     const newFile = this.fileRepository.create({

@@ -22,9 +22,11 @@ export class S3Service {
       s3ForcePathStyle: true,
       signatureVersion: 'v4',
     });
-    this.bucket = configService.get<string>('S3_BUCKET_NAME') || 'my-bucket';
+    this.bucket =
+      configService.get<string>('S3_BUCKET_NAME') || 'my-app-bucket';
   }
 
+  // NUOVO METODO: Configura il CORS sul bucket all'avvio
   async configureCors() {
     const corsParams: S3.Types.PutBucketCorsRequest = {
       Bucket: this.bucket,
@@ -33,8 +35,9 @@ export class S3Service {
           {
             AllowedHeaders: ['*'],
             AllowedMethods: ['GET', 'PUT', 'POST', 'DELETE'],
+            // Permetti le richieste sia dal dev server (3001) che da un eventuale container frontend (8080)
             AllowedOrigins: ['http://localhost:3001', 'http://localhost:8080'],
-            ExposeHeaders: ['ETag'],
+            ExposeHeaders: ['ETag'], // Permette al browser di leggere l'header ETag dopo l'upload
             MaxAgeSeconds: 3000,
           },
         ],
@@ -42,11 +45,16 @@ export class S3Service {
     };
 
     try {
+      // Tenta di creare il bucket. Se esiste già, non fa nulla.
+      await this.s3.createBucket({ Bucket: this.bucket }).promise();
+      this.logger.log(`Bucket ${this.bucket} created or already exists.`);
+
+      // Imposta la policy CORS
       await this.s3.putBucketCors(corsParams).promise();
       this.logger.log(
         `Successfully configured CORS for bucket: ${this.bucket}`,
       );
-    } catch (error: any) {
+    } catch (error) {
       if (
         typeof error === 'object' &&
         error !== null &&
@@ -56,36 +64,46 @@ export class S3Service {
         this.logger.warn(
           `Bucket ${this.bucket} does not exist yet. It will be created on first upload. CORS will be set then.`,
         );
+      } else if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        (error as { code?: string }).code !== 'BucketAlreadyOwnedByYou'
+      ) {
+        this.logger.error(
+          'Error setting CORS configuration',
+          (error as { stack?: string }).stack,
+        );
       } else {
-        this.logger.error('Error setting CORS configuration', error);
+        // Se il bucket esiste già, proviamo comunque a impostare il CORS
+        try {
+          await this.s3.putBucketCors(corsParams).promise();
+          this.logger.log(
+            `Successfully configured CORS for existing bucket: ${this.bucket}`,
+          );
+        } catch (corsError) {
+          this.logger.error(
+            'Error setting CORS configuration on existing bucket',
+            typeof corsError === 'object' &&
+              corsError !== null &&
+              'stack' in corsError
+              ? (corsError as { stack?: string }).stack
+              : undefined,
+          );
+        }
       }
     }
   }
 
-  async getPresignedUploadUrl(
-    filename: string,
-    fileType: string,
-  ): Promise<PresignedUrlResponse> {
+  async getPresignedUploadUrl(filename: string): Promise<PresignedUrlResponse> {
     const s3Key = `${uuid()}-${filename}`;
     const params = {
       Bucket: this.bucket,
       Key: s3Key,
-      ContentType: fileType,
       Expires: 60 * 5,
     };
     let uploadUrl = await this.s3.getSignedUrlPromise('putObject', params);
     uploadUrl = uploadUrl.replace('storage.local', 'localhost');
     return { uploadUrl, key: s3Key };
-  }
-
-  async getPresignedDownloadUrl(key: string): Promise<string> {
-    const params = {
-      Bucket: this.bucket,
-      Key: key,
-      Expires: 60 * 5,
-    };
-    let downloadUrl = await this.s3.getSignedUrlPromise('getObject', params);
-    downloadUrl = downloadUrl.replace('storage.local', 'localhost');
-    return downloadUrl;
   }
 }
