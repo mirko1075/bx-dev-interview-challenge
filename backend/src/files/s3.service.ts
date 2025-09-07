@@ -15,12 +15,22 @@ export class S3Service {
   private readonly logger = new Logger(S3Service.name);
 
   constructor(private readonly configService: ConfigService) {
+    // Configurazione S3 per ambiente Docker con S3 Ninja
+    const endpoint = configService.get<string>('S3_ENDPOINT');
+    const accessKeyId = configService.get<string>('S3_ACCESS_KEY_ID');
+    const secretAccessKey = configService.get<string>('S3_SECRET_ACCESS_KEY');
+
+    this.logger.log(
+      `S3 Configuration: endpoint=${endpoint}, keyId=${accessKeyId ? 'SET' : 'NOT_SET'}`,
+    );
+
     this.s3 = new S3({
-      endpoint: configService.get<string>('S3_ENDPOINT'),
-      accessKeyId: configService.get<string>('S3_ACCESS_KEY_ID'),
-      secretAccessKey: configService.get<string>('S3_SECRET_ACCESS_KEY'),
+      endpoint: endpoint,
+      accessKeyId: accessKeyId,
+      secretAccessKey: secretAccessKey,
       s3ForcePathStyle: true,
       signatureVersion: 'v4',
+      region: 'us-east-1', // Regione fissa per S3 Ninja
     });
     this.bucket =
       configService.get<string>('S3_BUCKET_NAME') || 'my-app-bucket';
@@ -95,15 +105,34 @@ export class S3Service {
     }
   }
 
-  async getPresignedUploadUrl(filename: string): Promise<PresignedUrlResponse> {
+  async getPresignedUploadUrl(
+    filename: string,
+    contentType?: string,
+  ): Promise<PresignedUrlResponse> {
     const s3Key = `${uuid()}-${filename}`;
+
+    const finalContentType = contentType || 'application/octet-stream';
+
+    this.logger.log(
+      `Generating presigned URL for ${filename}, contentType: ${finalContentType}`,
+    );
+
+    // STRATEGIA: Usiamo 'binary/octet-stream' per evitare conflitti di Content-Type
+    // Il browser accetterà questo tipo e la firma sarà consistente
     const params = {
       Bucket: this.bucket,
       Key: s3Key,
       Expires: 60 * 5,
+      ContentType: 'binary/octet-stream', // Tipo generico che funziona per tutti i file
     };
+
     let uploadUrl = await this.s3.getSignedUrlPromise('putObject', params);
     uploadUrl = uploadUrl.replace('storage.local', 'localhost');
+
+    this.logger.log(
+      `Generated URL (first 100 chars): ${uploadUrl.substring(0, 100)}...`,
+    );
+
     return { uploadUrl, key: s3Key };
   }
 

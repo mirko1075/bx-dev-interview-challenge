@@ -14,7 +14,9 @@ import { S3Service } from './s3.service';
 export class FilesModule implements OnModuleInit {
   constructor(private readonly s3Service: S3Service) {}
 
-  async onModuleInit() {
-    await this.s3Service.configureCors();
+  onModuleInit() {
+    // Temporaneamente disabilitato per evitare errori di firma
+    // await this.s3Service.configureCors();
+    console.log('FilesModule initialized - CORS configuration skipped');
   }
 }

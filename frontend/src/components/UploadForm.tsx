@@ -36,12 +36,10 @@
           });
 
           // 2. Carica il file direttamente su S3 usando l'URL ottenuto
-          // Nota: Axios non supporta nativamente il progresso dell'upload per le richieste PUT.
-          // Per una barra di progresso reale, sarebbe necessario usare XMLHttpRequest o una libreria diversa.
-          // Qui simuliamo il progresso.
           uploadUrl = uploadUrl.replace('storage.local', 'localhost');
-          await uploadFileToS3(uploadUrl, selectedFile);
-          setUploadProgress(100); // Simula il completamento
+          await uploadFileToS3(uploadUrl, selectedFile, (progress) => {
+            setUploadProgress(progress);
+          });
 
           setSuccess(`File "${selectedFile.name}" uploaded successfully!`);
         } catch (err) {

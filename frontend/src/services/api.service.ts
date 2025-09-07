@@ -45,33 +45,55 @@ export const api = {
 
 export const uploadWithProgress = (url: string, file: File, onProgress: ProgressCallback): Promise<void> => {
   return new Promise((resolve, reject) => {
+    console.log('🔍 UPLOAD DEBUG - Starting upload');
+    console.log('📁 File details:', {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      lastModified: file.lastModified
+    });
+    console.log('🔗 Upload URL:', url);
+    
     const xhr = new XMLHttpRequest();
 
     xhr.open('PUT', url);
+    
+    console.log('📤 XHR opened with PUT method');
 
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
         const percentComplete = Math.round((event.loaded * 100) / event.total);
         onProgress(percentComplete);
+        console.log(`📊 Upload progress: ${percentComplete}%`);
       }
     };
 
     xhr.onload = () => {
+      console.log('✅ XHR onload triggered');
+      console.log('📋 Response status:', xhr.status);
+      console.log('📋 Response statusText:', xhr.statusText);
+      console.log('📋 Response headers:', xhr.getAllResponseHeaders());
+      console.log('📋 Response body:', xhr.responseText);
+      
       if (xhr.status >= 200 && xhr.status < 300) {
+        console.log('✅ Upload successful!');
         resolve();
       } else {
+        console.log('❌ Upload failed with status:', xhr.status);
         reject(new Error(`Upload failed with status: ${xhr.status} ${xhr.statusText}`));
       }
     };
 
     xhr.onerror = () => {
+      console.log('❌ XHR error occurred');
       reject(new Error('An error occurred during the upload.'));
     };
 
-    // RIMUOVIAMO IL CONTENT-TYPE HEADER per compatibilità S3 Ninja
-    // L'URL pre-firmato può includere Content-Type nei parametri query se necessario
-    // xhr.setRequestHeader('Content-Type', file.type);
+    // Impostiamo esplicitamente il Content-Type per matchare la firma
+    xhr.setRequestHeader('Content-Type', 'binary/octet-stream');
+    console.log('📋 Set Content-Type header to: binary/octet-stream');
     
+    console.log('📤 Sending file data...');
     xhr.send(file);
   });
 };
