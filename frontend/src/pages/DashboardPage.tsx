@@ -1,10 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button, Container, Typography, Box, Divider, AppBar, Toolbar } from '@mui/material';
 import { useAuth } from '@/context/AuthContext';
 import { UploadForm } from '@/components/UploadForm';
+import FileList from '@/components/FileList';
 
 export const DashboardPage = () => {
   const { logout } = useAuth();
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const handleUploadSuccess = () => {
+    // Trigger refresh of file list when upload is successful
+    setRefreshTrigger(prev => prev + 1);
+  };
 
   return (
     <Box sx={{ flexGrow: 1 }}>
@@ -19,7 +26,7 @@ export const DashboardPage = () => {
         </Toolbar>
       </AppBar>
 
-      <Container component="main" maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+      <Container component="main" maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
         <Typography component="h1" variant="h4" gutterBottom>
           File Management
         </Typography>
@@ -29,7 +36,11 @@ export const DashboardPage = () => {
 
         <Divider sx={{ my: 4 }} />
 
-        <UploadForm />
+        <UploadForm onUploadSuccess={handleUploadSuccess} />
+
+        <Divider sx={{ my: 4 }} />
+
+        <FileList refreshTrigger={refreshTrigger} />
 
       </Container>
     </Box>

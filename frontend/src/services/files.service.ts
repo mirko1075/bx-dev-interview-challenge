@@ -12,11 +12,16 @@ export const getPresignedUploadUrl = async (
 export { uploadWithProgress };
 
 export const getFiles = async (): Promise<IFile[]> => {
-  return api.get<IFile[]>('/files');
+  const response = await api.get<{ success: boolean; files: IFile[] }>('/files');
+  return response.files;
 }
 
-export const getDownloadUrl = async (fileId: string): Promise<{ downloadUrl: string }> => {
-  return api.get<{ downloadUrl: string }>(`/files/${fileId}/download`);
+export const getDownloadUrl = async (fileId: string): Promise<{ downloadUrl: string; filename: string }> => {
+  // Instead of getting a presigned URL, return the direct download endpoint
+  return { 
+    downloadUrl: `/api/files/${fileId}/download`, 
+    filename: `file-${fileId}` // We'll get the real filename from the response headers
+  };
 }
 
 export const uploadFileToS3 = uploadWithProgress;

@@ -152,6 +152,18 @@ export class S3Service {
     return s3Key;
   }
 
+  async getFileStream(s3Key: string) {
+    this.logger.log(`Getting file stream for key: ${s3Key}`);
+
+    const params = {
+      Bucket: this.bucket,
+      Key: s3Key,
+    };
+
+    // Return the readable stream directly from S3
+    return this.s3.getObject(params).createReadStream();
+  }
+
   async testConnection(): Promise<boolean> {
     try {
       await this.s3.listBuckets().promise();

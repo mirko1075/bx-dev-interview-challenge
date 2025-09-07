@@ -13,30 +13,15 @@ export class FilesService {
     private readonly s3Service: S3Service,
   ) {}
 
-  async generatePresignedUrl(filename: string, fileType: string, user: User) {
-    try {
-      const { uploadUrl, key } = await this.s3Service.getPresignedUploadUrl(
-        filename,
-        fileType,
-      );
-
-      // Pre-salviamo i metadati del file nel database
-      const newFile = this.fileRepository.create({
-        filename,
-        s3Key: key,
-        mimetype: fileType,
-        user,
-        size: 0,
-      });
-      await this.fileRepository.save(newFile);
-
-      return { uploadUrl, file: newFile };
-    } catch (error) {
-      console.warn('Primary method failed, trying alternative:', error);
-    }
-  }
-
-  async uploadFileDirect(file: any, user: User) {
+  async uploadFileDirect(
+    file: {
+      buffer: Buffer;
+      originalname: string;
+      mimetype: string;
+      size: number;
+    },
+    user: User,
+  ) {
     try {
       // Upload direttamente a S3 tramite backend
       const key = await this.s3Service.uploadFileDirect(
@@ -61,8 +46,49 @@ export class FilesService {
         message: `File ${file.originalname} uploaded successfully`,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to upload file: ${errorMessage}`);
+    }
+  }
+
+  async getFilesByUser(user: User) {
+    try {
+      const files = await this.fileRepository.find({
+        where: { user: { id: user.id } },
+        order: { createdAt: 'DESC' },
+      });
+      return { success: true, files };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to get files: ${errorMessage}`);
+    }
+  }
+
+  async downloadFile(fileId: string, user: User) {
+    try {
+      // Verifica che il file appartenga all'utente
+      const file = await this.fileRepository.findOne({
+        where: { id: fileId, user: { id: user.id } },
+      });
+
+      if (!file) {
+        throw new Error('File not found or access denied');
+      }
+
+      // Ottieni il file stream direttamente da S3
+      const fileStream = await this.s3Service.getFileStream(file.s3Key);
+      
+      return {
+        stream: fileStream,
+        filename: file.filename,
+        mimetype: file.mimetype,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to download file: ${errorMessage}`);
     }
   }
 }

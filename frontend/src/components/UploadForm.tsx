@@ -3,7 +3,11 @@
     import CloudUploadIcon from '@mui/icons-material/CloudUpload';
     import { uploadFileToBackend } from '@/services/files.service';
 
-    export const UploadForm = () => {
+    interface UploadFormProps {
+      onUploadSuccess?: () => void;
+    }
+
+    export const UploadForm: React.FC<UploadFormProps> = ({ onUploadSuccess }) => {
       const [selectedFile, setSelectedFile] = useState<File | null>(null);
       const [isUploading, setIsUploading] = useState(false);
       const [uploadProgress, setUploadProgress] = useState(0);
@@ -34,11 +38,16 @@
           const formData = new FormData();
           formData.append('file', selectedFile);
 
-          const response = await uploadFileToBackend(formData, (progress) => {
+          await uploadFileToBackend(formData, (progress) => {
             setUploadProgress(progress);
           });
 
           setSuccess(`File "${selectedFile.name}" uploaded successfully!`);
+          
+          // Trigger refresh of file list
+          if (onUploadSuccess) {
+            onUploadSuccess();
+          }
         } catch (err) {
           setError('Upload failed. Please try again.');
           console.error(err);
