@@ -26,6 +26,12 @@ import { FileUploadExceptionFilter } from './file-upload-exception.filter';
 import { ImageCompressionService } from './image-compression.service';
 import { ChunkedUploadService } from './chunked-upload.service';
 import { CacheService } from './cache.service';
+import {
+  GetPresignedUploadUrlDto,
+  CompletePresignedUploadDto,
+  PresignedUploadUrlResponse,
+  PresignedDownloadUrlResponse,
+} from './dto/presigned-upload.dto';
 
 @Controller('files')
 @UseFilters(FileUploadExceptionFilter)
@@ -89,10 +95,10 @@ export class FilesController {
       processedFile,
       user,
     );
-    
+
     // Clear user's file cache to ensure fresh data
     this.cacheService.delete(`files:user:${user.id}`);
-    
+
     return result;
   }
 
@@ -106,20 +112,20 @@ export class FilesController {
   async getFiles(@Req() req: { user: User }) {
     const user = req.user;
     this.logger.log(`Getting files for user: ${user.id}`);
-    
+
     // Try to get from cache first
     const cacheKey = `files:user:${user.id}`;
     const cachedFiles = this.cacheService.get(cacheKey);
-    
+
     if (cachedFiles) {
       this.logger.debug(`Cache hit for user files: ${user.id}`);
       return cachedFiles;
     }
-    
+
     // Fetch from database and cache result
     const result = await this.filesService.getFilesByUser(user);
     this.cacheService.set(cacheKey, result, 2 * 60 * 1000); // Cache for 2 minutes
-    
+
     return result;
   }
 
@@ -133,11 +139,11 @@ export class FilesController {
   ) {
     const { filename, fileSize, chunkSize } = body;
     const user = req.user;
-    
+
     this.logger.log(
       `Initializing chunked upload: ${filename} (${fileSize} bytes) for user: ${user.id}`,
     );
-    
+
     return this.chunkedUploadService.initializeUpload(
       filename,
       fileSize,
@@ -157,7 +163,7 @@ export class FilesController {
   ) {
     const user = req.user;
     const chunkNum = parseInt(chunkNumber, 10);
-    
+
     return this.chunkedUploadService.uploadChunk(
       uploadId,
       chunkNum,
@@ -175,13 +181,13 @@ export class FilesController {
   ) {
     const user = req.user;
     const { filename, mimetype } = body;
-    
+
     // Assemble the file
     const assembledBuffer = this.chunkedUploadService.assembleFile(
       uploadId,
       user,
     );
-    
+
     // Create file object
     const file = {
       buffer: assembledBuffer,
@@ -189,15 +195,15 @@ export class FilesController {
       mimetype,
       size: assembledBuffer.length,
     };
-    
+
     // Validate and process the assembled file
     this.fileValidationService.validateFile(file);
-    
+
     const result = await this.filesService.uploadFileDirect(file, user);
-    
+
     // Clear cache
     this.cacheService.delete(`files:user:${user.id}`);
-    
+
     return result;
   }
 
@@ -223,12 +229,85 @@ export class FilesController {
     return { success: true, message: 'Upload cancelled' };
   }
 
+  // Presigned URL endpoints
+  @UseGuards(AuthGuard('jwt'))
+  @Post('presigned-upload-url')
+  async getPresignedUploadUrl(
+    @Body() getPresignedUrlDto: GetPresignedUploadUrlDto,
+    @Req() req: { user: User },
+  ): Promise<PresignedUploadUrlResponse> {
+    const user = req.user;
+
+    // Validate the file before generating presigned URL
+    this.fileValidationService.validateFileRequest(
+      getPresignedUrlDto.filename,
+      getPresignedUrlDto.fileType,
+    );
+
+    this.logger.log(
+      `Generating presigned upload URL for: ${getPresignedUrlDto.filename} (${getPresignedUrlDto.fileType}) for user: ${user.id}`,
+    );
+
+    const result = await this.filesService.getPresignedUploadUrl(
+      getPresignedUrlDto.filename,
+      getPresignedUrlDto.fileType,
+      user,
+    );
+
+    return result;
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('presigned-upload-complete')
+  async completePresignedUpload(
+    @Body() completeUploadDto: CompletePresignedUploadDto,
+    @Req() req: { user: User },
+  ) {
+    const user = req.user;
+
+    this.logger.log(
+      `Completing presigned upload for key: ${completeUploadDto.s3Key} for user: ${user.id}`,
+    );
+
+    const result = await this.filesService.completePresignedUpload(
+      completeUploadDto.s3Key,
+      completeUploadDto.filename,
+      completeUploadDto.fileType,
+      completeUploadDto.fileSize,
+      user,
+    );
+
+    // Clear user's file cache to ensure fresh data
+    this.cacheService.delete(`files:user:${user.id}`);
+
+    return result;
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get(':id/presigned-download-url')
+  async getPresignedDownloadUrl(
+    @Param('id') fileId: string,
+    @Req() req: { user: User },
+  ): Promise<PresignedDownloadUrlResponse> {
+    const user = req.user;
+
+    this.logger.log(
+      `Generating presigned download URL for file: ${fileId} for user: ${user.id}`,
+    );
+
+    const result = await this.filesService.getPresignedDownloadUrl(
+      fileId,
+      user,
+    );
+    return result;
+  }
+
   // Performance monitoring endpoints
   @Get('performance/stats')
   getPerformanceStats() {
     const cacheStats = this.cacheService.getStats();
     const uploadStats = this.chunkedUploadService.getStats();
-    
+
     return {
       cache: cacheStats,
       chunkedUploads: uploadStats,

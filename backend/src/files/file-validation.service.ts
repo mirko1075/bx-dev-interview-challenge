@@ -164,4 +164,59 @@ export class FileValidationService {
   getValidationConfig(): FileValidationConfig {
     return { ...this.config };
   }
+
+  // Validate file request for presigned URLs (before actual upload)
+  validateFileRequest(filename: string, mimeType: string): void {
+    this.logger.log(`Validating file request: ${filename} (${mimeType})`);
+
+    // Validate filename
+    this.validateFilename(filename);
+
+    // Validate MIME type
+    if (!this.config.allowedMimeTypes.includes(mimeType)) {
+      throw new BadRequestException(
+        `File type not allowed. Allowed types: ${this.config.allowedMimeTypes.join(', ')}`,
+      );
+    }
+
+    // Validate file extension
+    const extension = this.getFileExtension(filename).toLowerCase();
+    if (!this.config.allowedExtensions.includes(extension)) {
+      throw new BadRequestException(
+        `File extension not allowed. Allowed extensions: ${this.config.allowedExtensions.join(', ')}`,
+      );
+    }
+
+    // Check if extension matches MIME type
+    const expectedMimeTypes = this.getExpectedMimeTypes(extension);
+    if (expectedMimeTypes.length > 0 && !expectedMimeTypes.includes(mimeType)) {
+      throw new BadRequestException(
+        `File extension '${extension}' does not match MIME type '${mimeType}'. Expected: ${expectedMimeTypes.join(' or ')}`,
+      );
+    }
+
+    this.logger.log(`File request validation passed: ${filename}`);
+  }
+
+  private getExpectedMimeTypes(extension: string): string[] {
+    const mimeTypeMap: { [key: string]: string[] } = {
+      '.jpg': ['image/jpeg'],
+      '.jpeg': ['image/jpeg'],
+      '.png': ['image/png'],
+      '.gif': ['image/gif'],
+      '.webp': ['image/webp'],
+      '.pdf': ['application/pdf'],
+      '.txt': ['text/plain'],
+      '.doc': ['application/msword'],
+      '.docx': [
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ],
+      '.xls': ['application/vnd.ms-excel'],
+      '.xlsx': [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ],
+    };
+
+    return mimeTypeMap[extension] || [];
+  }
 }

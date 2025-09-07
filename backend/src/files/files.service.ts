@@ -90,4 +90,90 @@ export class FilesService {
       throw new Error(`Failed to download file: ${errorMessage}`);
     }
   }
+
+  async getPresignedUploadUrl(filename: string, fileType: string, user: User) {
+    try {
+      const result = await this.s3Service.getPresignedUploadUrl(
+        filename,
+        fileType,
+      );
+
+      return {
+        success: true,
+        uploadUrl: result.uploadUrl,
+        s3Key: result.key,
+        filename,
+        fileType,
+        userId: user.id, // Include user ID for reference
+        message: `Presigned upload URL generated for ${filename}`,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed to generate presigned upload URL: ${errorMessage}`,
+      );
+    }
+  }
+
+  async completePresignedUpload(
+    s3Key: string,
+    filename: string,
+    fileType: string,
+    fileSize: number,
+    user: User,
+  ) {
+    try {
+      // Save file metadata to database after successful presigned upload
+      const newFile = this.fileRepository.create({
+        filename,
+        s3Key,
+        mimetype: fileType,
+        user,
+        size: fileSize,
+      });
+      await this.fileRepository.save(newFile);
+
+      return {
+        success: true,
+        file: newFile,
+        message: `File ${filename} uploaded successfully via presigned URL`,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to complete presigned upload: ${errorMessage}`);
+    }
+  }
+
+  async getPresignedDownloadUrl(fileId: string, user: User) {
+    try {
+      // Verify file belongs to user
+      const file = await this.fileRepository.findOne({
+        where: { id: fileId, user: { id: user.id } },
+      });
+
+      if (!file) {
+        throw new Error('File not found or access denied');
+      }
+
+      const downloadUrl = await this.s3Service.getPresignedDownloadUrl(
+        file.s3Key,
+      );
+
+      return {
+        success: true,
+        downloadUrl,
+        filename: file.filename,
+        mimetype: file.mimetype,
+        message: `Presigned download URL generated for ${file.filename}`,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed to generate presigned download URL: ${errorMessage}`,
+      );
+    }
+  }
 }

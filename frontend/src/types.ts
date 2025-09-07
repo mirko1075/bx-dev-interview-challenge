@@ -11,6 +11,31 @@ interface GetPresignedUrlPayload {
   fileType: string;
 }
 
+interface PresignedUploadUrlResponse {
+  success: boolean;
+  uploadUrl: string;
+  s3Key: string;
+  filename: string;
+  fileType: string;
+  userId: string;
+  message: string;
+}
+
+interface CompletePresignedUploadPayload {
+  s3Key: string;
+  filename: string;
+  fileType: string;
+  fileSize: number;
+}
+
+interface PresignedDownloadUrlResponse {
+  success: boolean;
+  downloadUrl: string;
+  filename: string;
+  mimetype: string;
+  message: string;
+}
+
 interface PresignedUrlResponse {
   uploadUrl: string;
   file: IFile;
@@ -33,4 +58,14 @@ interface PresignedUrlResponse {
   updatedAt: string;
 }
 
-export type { IFile, GetPresignedUrlPayload, PresignedUrlResponse, LoginCredentials, AuthResponse, User };
+export type { 
+  IFile, 
+  GetPresignedUrlPayload, 
+  PresignedUrlResponse, 
+  PresignedUploadUrlResponse,
+  CompletePresignedUploadPayload,
+  PresignedDownloadUrlResponse,
+  LoginCredentials, 
+  AuthResponse, 
+  User 
+};

@@ -128,6 +128,25 @@ export class S3Service {
     return { uploadUrl, key: s3Key };
   }
 
+  async getPresignedDownloadUrl(s3Key: string): Promise<string> {
+    this.logger.log(`Generating presigned download URL for key: ${s3Key}`);
+
+    const params = {
+      Bucket: this.bucket,
+      Key: s3Key,
+      Expires: 60 * 5, // 5 minutes
+    };
+
+    let downloadUrl = await this.s3.getSignedUrlPromise('getObject', params);
+    downloadUrl = downloadUrl.replace('storage.local', 'localhost');
+
+    this.logger.log(
+      `Generated download URL (first 100 chars): ${downloadUrl.substring(0, 100)}...`,
+    );
+
+    return downloadUrl;
+  }
+
   async uploadFileDirect(
     buffer: Buffer,
     filename: string,

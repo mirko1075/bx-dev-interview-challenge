@@ -13,9 +13,14 @@ import {
   Alert,
   IconButton,
   Chip,
+  FormControl,
+  FormLabel,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
 } from '@mui/material';
 import { Download as DownloadIcon, Refresh as RefreshIcon } from '@mui/icons-material';
-import { getFiles } from '@/services/files.service';
+import { getFiles, getPresignedDownloadUrl } from '@/services/files.service';
 import { IFile } from '@/types';
 
 interface FileListProps {
@@ -28,6 +33,7 @@ const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
+  const [downloadMethod, setDownloadMethod] = useState<'direct' | 'presigned'>('presigned');
 
   const loadFiles = async () => {
     try {
@@ -47,39 +53,60 @@ const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
     try {
       setDownloadingIds(prev => new Set(prev).add(fileId));
       
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/files/${fileId}/download`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      if (downloadMethod === 'presigned') {
+        // Use presigned URL download
+        console.log('🔗 Using presigned URL download for:', filename);
+        
+        const response = await getPresignedDownloadUrl(fileId);
+        
+        // Open the presigned URL in a new tab or download directly
+        const link = document.createElement('a');
+        link.href = response.downloadUrl;
+        link.download = response.filename;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+      } else {
+        // Use direct backend download
+        console.log('🚀 Using direct backend download for:', filename);
+        
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/files/${fileId}/download`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
 
-      if (!response.ok) {
-        throw new Error('Download failed');
-      }
-
-      // Get filename from Content-Disposition header or use fallback
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let downloadFilename = filename;
-      if (contentDisposition) {
-        const matches = contentDisposition.match(/filename="([^"]+)"/);
-        if (matches) {
-          downloadFilename = matches[1];
+        if (!response.ok) {
+          throw new Error('Download failed');
         }
-      }
 
-      // Create blob and download
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = downloadFilename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+        // Get filename from Content-Disposition header or use fallback
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let downloadFilename = filename;
+        if (contentDisposition) {
+          const matches = contentDisposition.match(/filename="([^"]+)"/);
+          if (matches) {
+            downloadFilename = matches[1];
+          }
+        }
+
+        // Create blob and download
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = downloadFilename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }
     } catch (err) {
-      setError(`Failed to download ${filename}. Please try again.`);
+      const errorMessage = err instanceof Error ? err.message : `Failed to download ${filename}. Please try again.`;
+      setError(errorMessage);
       console.error('Error downloading file:', err);
     } finally {
       setDownloadingIds(prev => {
@@ -137,6 +164,26 @@ const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
           <RefreshIcon />
         </IconButton>
       </Box>
+
+      <FormControl component="fieldset" sx={{ mb: 2 }}>
+        <FormLabel component="legend">Download Method</FormLabel>
+        <RadioGroup
+          row
+          value={downloadMethod}
+          onChange={(e) => setDownloadMethod(e.target.value as 'direct' | 'presigned')}
+        >
+          <FormControlLabel 
+            value="presigned" 
+            control={<Radio />} 
+            label="Presigned URL (Direct from S3)" 
+          />
+          <FormControlLabel 
+            value="direct" 
+            control={<Radio />} 
+            label="Direct Backend Download" 
+          />
+        </RadioGroup>
+      </FormControl>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>

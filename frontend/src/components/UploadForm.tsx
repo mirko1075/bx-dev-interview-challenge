@@ -1,8 +1,25 @@
     import React, { useState, useEffect } from 'react';
-    import { Button, Box, Typography, LinearProgress, Alert, Chip } from '@mui/material';
+    import { 
+      Button, 
+      Box, 
+      Typography, 
+      LinearProgress, 
+      Alert, 
+      Chip, 
+      FormControl, 
+      FormLabel, 
+      RadioGroup, 
+      FormControlLabel, 
+      Radio 
+    } from '@mui/material';
     import CloudUploadIcon from '@mui/icons-material/CloudUpload';
     import InfoIcon from '@mui/icons-material/Info';
-    import { uploadFileToBackend, getValidationConfig, FileValidationConfig } from '@/services/files.service';
+    import { 
+      uploadFileToBackend, 
+      getValidationConfig, 
+      FileValidationConfig,
+      uploadFileViaPresignedUrl
+    } from '@/services/files.service';
 
     interface UploadFormProps {
       onUploadSuccess?: () => void;
@@ -15,6 +32,7 @@
       const [error, setError] = useState('');
       const [success, setSuccess] = useState('');
       const [validationConfig, setValidationConfig] = useState<FileValidationConfig | null>(null);
+      const [uploadMethod, setUploadMethod] = useState<'direct' | 'presigned'>('presigned');
 
       useEffect(() => {
         const loadValidationConfig = async () => {
@@ -97,23 +115,37 @@
         setUploadProgress(0); // Reset progress
 
         try {
-          // Nuovo approccio: upload diretto al backend
-          const formData = new FormData();
-          formData.append('file', selectedFile);
+          if (uploadMethod === 'presigned') {
+            // Use presigned URL approach
+            console.log('🔗 Using presigned URL upload for:', selectedFile.name);
+            
+            await uploadFileViaPresignedUrl(selectedFile, (progress) => {
+              setUploadProgress(progress);
+            });
+            
+            setSuccess(`File "${selectedFile.name}" uploaded successfully via presigned URL!`);
+          } else {
+            // Use direct backend upload
+            console.log('🚀 Using direct backend upload for:', selectedFile.name);
+            
+            const formData = new FormData();
+            formData.append('file', selectedFile);
 
-          await uploadFileToBackend(formData, (progress) => {
-            setUploadProgress(progress);
-          });
+            await uploadFileToBackend(formData, (progress) => {
+              setUploadProgress(progress);
+            });
 
-          setSuccess(`File "${selectedFile.name}" uploaded successfully!`);
+            setSuccess(`File "${selectedFile.name}" uploaded successfully via direct upload!`);
+          }
           
           // Trigger refresh of file list
           if (onUploadSuccess) {
             onUploadSuccess();
           }
         } catch (err) {
-          setError('Upload failed. Please try again.');
-          console.error(err);
+          const errorMessage = err instanceof Error ? err.message : 'Upload failed. Please try again.';
+          setError(errorMessage);
+          console.error('Upload error:', err);
         } finally {
           setIsUploading(false);
           setSelectedFile(null);
@@ -145,6 +177,26 @@
                 </Box>
               </Box>
             )}
+            
+            <FormControl component="fieldset" sx={{ mb: 2 }}>
+              <FormLabel component="legend">Upload Method</FormLabel>
+              <RadioGroup
+                row
+                value={uploadMethod}
+                onChange={(e) => setUploadMethod(e.target.value as 'direct' | 'presigned')}
+              >
+                <FormControlLabel 
+                  value="presigned" 
+                  control={<Radio />} 
+                  label="Presigned URL (Direct to S3)" 
+                />
+                <FormControlLabel 
+                  value="direct" 
+                  control={<Radio />} 
+                  label="Direct Backend Upload" 
+                />
+              </RadioGroup>
+            </FormControl>
             
             <Button
               component="label"
