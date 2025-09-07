@@ -45,6 +45,8 @@ services:
     image: scireum/s3-ninja:latest
     expose:
       - '9000'
+    ports:
+      - "9000:9000"
     volumes:
       - ./docker/storage_data:/home/sirius/data
     networks:

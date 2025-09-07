@@ -5,6 +5,7 @@ import { AppController } from './controllers/app.controller';
 import { AppService } from './services/app/app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
+import { File } from './entities/file.entity'
 import { database } from './configs/database';
 import { AuthModule } from './auth/auth.module';
 import { auth } from './configs/auth';

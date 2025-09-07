@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common'; // <-- Importa OnModuleInit
 import { FilesService } from './files.service';
 import { FilesController } from './files.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -10,4 +10,10 @@ import { S3Service } from './s3.service';
   controllers: [FilesController],
   providers: [FilesService, S3Service],
 })
-export class FilesModule {}
+export class FilesModule implements OnModuleInit {
+  constructor(private readonly s3Service: S3Service) {}
+
+  async onModuleInit() {
+    await this.s3Service.configureCors();
+  }
+}
