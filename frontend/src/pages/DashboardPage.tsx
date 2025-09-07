@@ -34,7 +34,6 @@ export const DashboardPage = () => {
           Welcome! Use the form below to upload new files to your secure storage.
         </Typography>
 
-        <Divider sx={{ my: 4 }} />
 
         <UploadForm onUploadSuccess={handleUploadSuccess} />
 
