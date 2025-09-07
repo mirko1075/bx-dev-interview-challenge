@@ -79,7 +79,7 @@ export class FilesService {
 
       // Ottieni il file stream direttamente da S3
       const fileStream = await this.s3Service.getFileStream(file.s3Key);
-      
+
       return {
         stream: fileStream,
         filename: file.filename,

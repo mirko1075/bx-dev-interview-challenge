@@ -58,18 +58,16 @@ export class FilesController {
     @Res() res: Response,
   ) {
     const user = req.user;
-    this.logger.log(
-      `Downloading file: ${fileId} for user: ${user.id}`,
-    );
-    
+    this.logger.log(`Downloading file: ${fileId} for user: ${user.id}`);
+
     const fileStream = await this.filesService.downloadFile(fileId, user);
-    
+
     // Set appropriate headers
     res.set({
       'Content-Type': fileStream.mimetype,
       'Content-Disposition': `attachment; filename="${fileStream.filename}"`,
     });
-    
+
     // Pipe the file stream to response
     fileStream.stream.pipe(res);
   }
