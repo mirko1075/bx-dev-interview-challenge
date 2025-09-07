@@ -23,7 +23,7 @@ interface FileListProps {
   refreshTrigger?: number;
 }
 
-const FileList: React.FC<FileListProps> = ({ onRefresh, refreshTrigger }) => {
+const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
   const [files, setFiles] = useState<IFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

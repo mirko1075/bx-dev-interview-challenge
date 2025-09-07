@@ -9,7 +9,6 @@ import {
   UseInterceptors,
   UploadedFile,
   Res,
-  StreamableFile,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';

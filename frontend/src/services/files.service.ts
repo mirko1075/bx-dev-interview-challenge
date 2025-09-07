@@ -26,7 +26,7 @@ export const getDownloadUrl = async (fileId: string): Promise<{ downloadUrl: str
 
 export const uploadFileToS3 = uploadWithProgress;
 
-export const uploadFileToBackend = (formData: FormData, onProgress: ProgressCallback): Promise<any> => {
+export const uploadFileToBackend = (formData: FormData, onProgress: ProgressCallback): Promise<unknown> => {
   return new Promise((resolve, reject) => {
     console.log('🔍 BACKEND UPLOAD - Starting upload');
     

@@ -152,7 +152,7 @@ export class S3Service {
     return s3Key;
   }
 
-  async getFileStream(s3Key: string) {
+  getFileStream(s3Key: string) {
     this.logger.log(`Getting file stream for key: ${s3Key}`);
 
     const params = {

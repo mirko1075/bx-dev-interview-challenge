@@ -77,8 +77,7 @@ export class FilesService {
         throw new Error('File not found or access denied');
       }
 
-      // Ottieni il file stream direttamente da S3
-      const fileStream = await this.s3Service.getFileStream(file.s3Key);
+      const fileStream = this.s3Service.getFileStream(file.s3Key);
 
       return {
         stream: fileStream,
