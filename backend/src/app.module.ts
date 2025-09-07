@@ -9,10 +9,17 @@ import { AuthModule } from './auth/auth.module';
 import { auth } from './configs/auth';
 import { PassportModule } from '@nestjs/passport/dist/passport.module';
 import { FilesModule } from './files/files.module';
+import { ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // 1 minute
+        limit: 100, // 100 requests per minute
+      },
+    ]),
     ConfigModule.forRoot({
       isGlobal: true,
       load: [getCommonConfig, auth, database],

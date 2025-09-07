@@ -3,6 +3,17 @@ import { GetPresignedUrlPayload, IFile, PresignedUrlResponse } from '@/types';
 
 type ProgressCallback = (progress: number) => void;
 
+export interface FileValidationConfig {
+  maxSizeBytes: number;
+  allowedMimeTypes: string[];
+  allowedExtensions: string[];
+  maxFilenameLength: number;
+}
+
+export const getValidationConfig = async (): Promise<FileValidationConfig> => {
+  return api.get<FileValidationConfig>('/files/validation-config');
+};
+
 export const getPresignedUploadUrl = async (
   payload: GetPresignedUrlPayload,
 ): Promise<PresignedUrlResponse> => {
