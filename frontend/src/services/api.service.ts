@@ -2,6 +2,12 @@ type ProgressCallback = (progress: number) => void;
 
 type FetchOptions = RequestInit;
 
+let globalLogoutHandler: (() => void) | null = null;
+
+export const setGlobalLogoutHandler = (handler: () => void) => {
+  globalLogoutHandler = handler;
+};
+
 const customFetch = async (endpoint: string, options: RequestInit = {}) => {
   const token = localStorage.getItem('token');
 
@@ -18,6 +24,15 @@ const customFetch = async (endpoint: string, options: RequestInit = {}) => {
     ...options,
     headers,
   });
+
+  if (response.status === 401) {
+    console.log('Received 401 response, triggering logout');
+    if (globalLogoutHandler) {
+      globalLogoutHandler();
+    }
+    const errorData = await response.json().catch(() => ({ message: 'Unauthorized' }));
+    throw new Error(errorData.message || 'Unauthorized - token expired or invalid');
+  }
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ message: response.statusText }));

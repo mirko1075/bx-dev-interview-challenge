@@ -4,15 +4,16 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from '../entities/user.entity';
+import { User } from '../../entities/user.entity';
 import { Repository } from 'typeorm';
-import { RegisterUserDto } from './dto/register-user.dto';
+import { RegisterUserDto } from '../../dtos/register-user.dto';
 import * as bcrypt from 'bcrypt';
-import { LoginUserDto } from './dto/login-user.dto';
+import { LoginUserDto } from '../../dtos/login-user.dto';
 import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AuthService {
+  accessToken: string;
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -36,7 +37,7 @@ export class AuthService {
     });
 
     const savedUser = await this.userRepository.save(user);
-    delete savedUser.password; // Don't return the password hash
+    delete savedUser.password;
     return savedUser;
   }
 
@@ -46,11 +47,11 @@ export class AuthService {
       where: { email },
       select: ['id', 'email', 'password'],
     });
-
     if (user && (await bcrypt.compare(password, user.password || ''))) {
       const payload = { sub: user.id, email: user.email };
+      this.accessToken = this.jwtService.sign(payload);
       return {
-        accessToken: this.jwtService.sign(payload),
+        accessToken: this.accessToken,
       };
     }
     throw new UnauthorizedException('Please check your login credentials');

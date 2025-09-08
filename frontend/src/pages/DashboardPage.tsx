@@ -9,7 +9,6 @@ export const DashboardPage = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const handleUploadSuccess = () => {
-    // Trigger refresh of file list when upload is successful
     setRefreshTrigger(prev => prev + 1);
   };
 

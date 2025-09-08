@@ -29,7 +29,7 @@ export class CacheService {
 
   get<T>(key: string): T | null {
     const item = this.cache.get(key);
-    
+
     if (!item) {
       return null;
     }
@@ -90,7 +90,7 @@ export class CacheService {
   getStats(): { size: number; memoryUsage: string } {
     const size = this.cache.size;
     const memoryUsage = `${Math.round(JSON.stringify([...this.cache.entries()]).length / 1024)} KB`;
-    
+
     return { size, memoryUsage };
   }
 }

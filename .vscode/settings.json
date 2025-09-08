@@ -1,0 +1,14 @@
+{
+  "jest.jestCommandLine": "npm test --",
+  "jest.rootPath": "backend",
+  "jest.projects": [
+    {
+      "displayName": "backend",
+      "rootPath": "backend"
+    },
+    {
+      "displayName": "frontend",
+      "rootPath": "frontend"
+    }
+  ]
+}

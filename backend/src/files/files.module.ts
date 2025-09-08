@@ -1,14 +1,14 @@
 import { Module, OnModuleInit } from '@nestjs/common';
-import { FilesService } from './files.service';
-import { FilesController } from './files.controller';
+import { FilesService } from '../services/files/files.service';
+import { FilesController } from '@/controllers/files.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { File } from '../entities/file.entity';
-import { S3Service } from './s3.service';
-import { FileValidationService } from './file-validation.service';
+import { S3Service } from '../services/files/s3.service';
+import { FileValidationService } from '../services/files/file-validation.service';
 import { FileUploadExceptionFilter } from './file-upload-exception.filter';
-import { ImageCompressionService } from './image-compression.service';
-import { ChunkedUploadService } from './chunked-upload.service';
-import { CacheService } from './cache.service';
+import { ImageCompressionService } from '../services/files/image-compression.service';
+import { ChunkedUploadService } from '@/services/files/chunked-upload.service';
+import { CacheService } from '@/services/files/cache.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([File])],

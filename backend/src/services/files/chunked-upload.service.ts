@@ -1,6 +1,6 @@
+import { User } from '@/entities/user.entity';
+import { CacheService } from '@/services/files/cache.service';
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
-import { User } from '../entities/user.entity';
-import { CacheService } from './cache.service';
 
 interface UploadSession {
   chunks: Map<number, Buffer>;
