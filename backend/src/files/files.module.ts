@@ -1,6 +1,6 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { FilesService } from '../services/files/files.service';
-import { FilesController } from '@/controllers/files.controller';
+import { FilesController } from '@/controllers/files/files.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { File } from '../entities/file.entity';
 import { S3Service } from '../services/files/s3.service';

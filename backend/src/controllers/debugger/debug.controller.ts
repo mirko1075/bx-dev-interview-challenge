@@ -1,8 +1,8 @@
 // src/debug/debug.controller.ts
 
 import { Controller, Logger, Get, Post, Body } from '@nestjs/common';
-import { S3Service } from '../services/files/s3.service';
-import { FilesService } from '../services/files/files.service';
+import { S3Service } from '../../services/files/s3.service';
+import { FilesService } from '../../services/files/files.service';
 
 interface ValidationResult {
   test: string;
