@@ -10,7 +10,6 @@ import {
   UploadedFile,
   Res,
   UseFilters,
-  Query,
   Body,
   HttpCode,
   HttpStatus,
@@ -89,10 +88,10 @@ export class FilesController {
       processedFile,
       user,
     );
-    
+
     // Clear user's file cache to ensure fresh data
     this.cacheService.delete(`files:user:${user.id}`);
-    
+
     return result;
   }
 
@@ -106,20 +105,20 @@ export class FilesController {
   async getFiles(@Req() req: { user: User }) {
     const user = req.user;
     this.logger.log(`Getting files for user: ${user.id}`);
-    
+
     // Try to get from cache first
     const cacheKey = `files:user:${user.id}`;
     const cachedFiles = this.cacheService.get(cacheKey);
-    
+
     if (cachedFiles) {
       this.logger.debug(`Cache hit for user files: ${user.id}`);
       return cachedFiles;
     }
-    
+
     // Fetch from database and cache result
     const result = await this.filesService.getFilesByUser(user);
     this.cacheService.set(cacheKey, result, 2 * 60 * 1000); // Cache for 2 minutes
-    
+
     return result;
   }
 
@@ -133,11 +132,11 @@ export class FilesController {
   ) {
     const { filename, fileSize, chunkSize } = body;
     const user = req.user;
-    
+
     this.logger.log(
       `Initializing chunked upload: ${filename} (${fileSize} bytes) for user: ${user.id}`,
     );
-    
+
     return this.chunkedUploadService.initializeUpload(
       filename,
       fileSize,
@@ -157,7 +156,7 @@ export class FilesController {
   ) {
     const user = req.user;
     const chunkNum = parseInt(chunkNumber, 10);
-    
+
     return this.chunkedUploadService.uploadChunk(
       uploadId,
       chunkNum,
@@ -175,13 +174,13 @@ export class FilesController {
   ) {
     const user = req.user;
     const { filename, mimetype } = body;
-    
+
     // Assemble the file
     const assembledBuffer = this.chunkedUploadService.assembleFile(
       uploadId,
       user,
     );
-    
+
     // Create file object
     const file = {
       buffer: assembledBuffer,
@@ -189,15 +188,15 @@ export class FilesController {
       mimetype,
       size: assembledBuffer.length,
     };
-    
+
     // Validate and process the assembled file
     this.fileValidationService.validateFile(file);
-    
+
     const result = await this.filesService.uploadFileDirect(file, user);
-    
+
     // Clear cache
     this.cacheService.delete(`files:user:${user.id}`);
-    
+
     return result;
   }
 
@@ -228,7 +227,7 @@ export class FilesController {
   getPerformanceStats() {
     const cacheStats = this.cacheService.getStats();
     const uploadStats = this.chunkedUploadService.getStats();
-    
+
     return {
       cache: cacheStats,
       chunkedUploads: uploadStats,

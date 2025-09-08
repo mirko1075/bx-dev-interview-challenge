@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JWT Session Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        button { margin: 5px; padding: 10px; border: none; border-radius: 3px; cursor: pointer; }
+        .test-btn { background-color: #007bff; color: white; }
+        .clear-btn { background-color: #dc3545; color: white; }
+        .info { background-color: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 3px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .error { background-color: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>JWT Session Validation Test</h1>
+    <div class="info">
+        <h3>Instructions:</h3>
+        <p>1. Open your browser Developer Tools (F12)</p>
+        <p>2. Go to the Console tab</p>
+        <p>3. Use the buttons below to test JWT session validation</p>
+        <p>4. Check the Application tab → Local Storage to see token changes</p>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 1: Set Expired Token</h3>
+        <p>This will set an expired JWT token in localStorage. The app should automatically detect it and log you out.</p>
+        <button class="test-btn" onclick="testExpiredToken()">Set Expired Token & Reload</button>
+        <div id="expired-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 2: Set Valid Token (Short Expiry)</h3>
+        <p>This will set a token that expires in 30 seconds. You can watch it expire in real-time.</p>
+        <button class="test-btn" onclick="testShortExpiryToken()">Set 30-Second Token</button>
+        <div id="short-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 3: Clear Token</h3>
+        <p>This will clear the token from localStorage.</p>
+        <button class="clear-btn" onclick="clearToken()">Clear Token</button>
+        <div id="clear-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Current Token Status</h3>
+        <button class="test-btn" onclick="checkTokenStatus()">Check Current Token</button>
+        <div id="status-result"></div>
+    </div>
+
+    <script>
+        function createExpiredToken() {
+            const header = { alg: 'HS256', typ: 'JWT' };
+            const payload = {
+                sub: 'test-user',
+                iat: Math.floor(Date.now() / 1000) - 3600,
+                exp: Math.floor(Date.now() / 1000) - 1800
+            };
+            
+            const encodedHeader = btoa(JSON.stringify(header));
+            const encodedPayload = btoa(JSON.stringify(payload));
+            
+            return `${encodedHeader}.${encodedPayload}.fake-signature`;
+        }
+
+        function createValidToken(expiresInSeconds = 3600) {
+            const header = { alg: 'HS256', typ: 'JWT' };
+            const payload = {
+                sub: 'test-user',
+                iat: Math.floor(Date.now() / 1000),
+                exp: Math.floor(Date.now() / 1000) + expiresInSeconds
+            };
+            
+            const encodedHeader = btoa(JSON.stringify(header));
+            const encodedPayload = btoa(JSON.stringify(payload));
+            
+            return `${encodedHeader}.${encodedPayload}.fake-signature`;
+        }
+
+        function isTokenExpired(token) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                const currentTime = Math.floor(Date.now() / 1000);
+                return payload.exp < currentTime;
+            } catch (error) {
+                return true;
+            }
+        }
+
+        function getTokenInfo(token) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                const now = Math.floor(Date.now() / 1000);
+                const timeLeft = payload.exp - now;
+                
+                return {
+                    isExpired: payload.exp < now,
+                    expiresAt: new Date(payload.exp * 1000).toLocaleString(),
+                    timeLeft: timeLeft > 0 ? `${timeLeft} seconds` : 'Expired',
+                    payload: payload
+                };
+            } catch (error) {
+                return { error: 'Invalid token format' };
+            }
+        }
+
+        function testExpiredToken() {
+            const expiredToken = createExpiredToken();
+            localStorage.setItem('token', expiredToken);
+            
+            document.getElementById('expired-result').innerHTML = 
+                '<div class="warning">Expired token set! Reloading page in 2 seconds...</div>';
+            
+            console.log('Set expired token:', expiredToken);
+            console.log('Token info:', getTokenInfo(expiredToken));
+            
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        }
+
+        function testShortExpiryToken() {
+            const shortToken = createValidToken(30); // 30 seconds
+            localStorage.setItem('token', shortToken);
+            
+            const tokenInfo = getTokenInfo(shortToken);
+            document.getElementById('short-result').innerHTML = 
+                `<div class="success">30-second token set! Expires at: ${tokenInfo.expiresAt}</div>
+                 <div class="info">Watch the console and app behavior as it expires...</div>`;
+            
+            console.log('Set 30-second token:', shortToken);
+            console.log('Token info:', tokenInfo);
+            
+            // Set up a countdown
+            let countdown = 30;
+            const interval = setInterval(() => {
+                countdown--;
+                if (countdown <= 0) {
+                    clearInterval(interval);
+                    document.getElementById('short-result').innerHTML += 
+                        '<div class="error">Token should now be expired! Check if app redirected to login.</div>';
+                } else {
+                    document.getElementById('short-result').innerHTML = 
+                        `<div class="success">30-second token set! Expires in: ${countdown} seconds</div>
+                         <div class="info">Watch the console and app behavior as it expires...</div>`;
+                }
+            }, 1000);
+        }
+
+        function clearToken() {
+            localStorage.removeItem('token');
+            document.getElementById('clear-result').innerHTML = 
+                '<div class="success">Token cleared from localStorage!</div>';
+            console.log('Token cleared');
+        }
+
+        function checkTokenStatus() {
+            const token = localStorage.getItem('token');
+            const resultDiv = document.getElementById('status-result');
+            
+            if (!token) {
+                resultDiv.innerHTML = '<div class="info">No token found in localStorage</div>';
+                console.log('No token found');
+                return;
+            }
+            
+            const tokenInfo = getTokenInfo(token);
+            
+            if (tokenInfo.error) {
+                resultDiv.innerHTML = `<div class="error">Invalid token: ${tokenInfo.error}</div>`;
+                console.log('Invalid token:', tokenInfo.error);
+                return;
+            }
+            
+            const statusClass = tokenInfo.isExpired ? 'error' : 'success';
+            const statusText = tokenInfo.isExpired ? 'EXPIRED' : 'VALID';
+            
+            resultDiv.innerHTML = 
+                `<div class="${statusClass}">
+                    <strong>Token Status: ${statusText}</strong><br>
+                    Expires: ${tokenInfo.expiresAt}<br>
+                    Time left: ${tokenInfo.timeLeft}<br>
+                    Subject: ${tokenInfo.payload.sub}
+                </div>`;
+            
+            console.log('Current token info:', tokenInfo);
+        }
+
+        // Auto-check token status on page load
+        window.addEventListener('load', () => {
+            console.log('JWT Session Test Page Loaded');
+            console.log('Current URL:', window.location.href);
+            checkTokenStatus();
+        });
+    </script>
+</body>
+</html>

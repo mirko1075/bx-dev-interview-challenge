@@ -28,10 +28,9 @@ export const getFiles = async (): Promise<IFile[]> => {
 }
 
 export const getDownloadUrl = async (fileId: string): Promise<{ downloadUrl: string; filename: string }> => {
-  // Instead of getting a presigned URL, return the direct download endpoint
   return { 
     downloadUrl: `/api/files/${fileId}/download`, 
-    filename: `file-${fileId}` // We'll get the real filename from the response headers
+    filename: `file-${fileId}`
   };
 }
 

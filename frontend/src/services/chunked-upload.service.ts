@@ -23,8 +23,8 @@ interface UploadProgress {
 }
 
 export class ChunkedUploadService {
-  private static readonly DEFAULT_CHUNK_SIZE = 1024 * 1024; // 1MB chunks
-  private static readonly LARGE_FILE_THRESHOLD = 5 * 1024 * 1024; // 5MB
+  private static readonly DEFAULT_CHUNK_SIZE = 1024 * 1024;
+  private static readonly LARGE_FILE_THRESHOLD = 5 * 1024 * 1024;
 
   static shouldUseChunkedUpload(fileSize: number): boolean {
     return fileSize > this.LARGE_FILE_THRESHOLD;
@@ -122,7 +122,6 @@ export class ChunkedUploadService {
     let uploadedChunks = 0;
 
     try {
-      // Upload chunks sequentially for reliability
       for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
         const start = chunkIndex * chunkSize;
         const end = Math.min(start + chunkSize, file.size);
@@ -151,7 +150,6 @@ export class ChunkedUploadService {
         }
       }
 
-      // Complete the upload
       console.log('🔄 Assembling chunks...');
       const result = await this.completeUpload(uploadId, file.name, file.type);
       
@@ -161,7 +159,6 @@ export class ChunkedUploadService {
     } catch (error) {
       console.error('❌ Chunked upload failed:', error);
       
-      // Try to cancel the upload
       try {
         await this.cancelUpload(uploadId);
       } catch (cancelError) {

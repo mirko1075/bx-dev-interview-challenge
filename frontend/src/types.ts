@@ -17,20 +17,20 @@ interface PresignedUrlResponse {
 }
 
 
- interface LoginCredentials {
+ export interface LoginCredentials {
   email: string;
   password?: string;
 }
 
- interface AuthResponse {
+ export interface AuthResponse {
   accessToken: string;
 }
 
- interface User {
+ export interface User {
   id: string;
   email: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export type { IFile, GetPresignedUrlPayload, PresignedUrlResponse, LoginCredentials, AuthResponse, User };
+export type { IFile, GetPresignedUrlPayload, PresignedUrlResponse };
