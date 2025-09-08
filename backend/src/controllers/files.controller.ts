@@ -17,14 +17,14 @@ import {
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
-import { FilesService } from './files.service';
-import { AuthGuard } from '@nestjs/passport';
 import { User } from '@/entities/user.entity';
-import { FileValidationService } from './file-validation.service';
-import { FileUploadExceptionFilter } from './file-upload-exception.filter';
-import { ImageCompressionService } from './image-compression.service';
-import { ChunkedUploadService } from './chunked-upload.service';
-import { CacheService } from './cache.service';
+import { FileUploadExceptionFilter } from '@/files/file-upload-exception.filter';
+import { CacheService } from '@/services/files/cache.service';
+import { ChunkedUploadService } from '@/services/files/chunked-upload.service';
+import { FileValidationService } from '@/services/files/file-validation.service';
+import { FilesService } from '@/services/files/files.service';
+import { ImageCompressionService } from '@/services/files/image-compression.service';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('files')
 @UseFilters(FileUploadExceptionFilter)
