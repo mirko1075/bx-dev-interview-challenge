@@ -32,13 +32,10 @@ describe('AppController', () => {
       const message = 'Hello World!';
       const resultFromService = new MessageEntity(message);
       appService.getHello.mockReturnValue(resultFromService);
-
+      const mapDataSpy = jest.spyOn(Mapper, 'mapData');
       appController.getHello();
 
-      expect(Mapper.mapData).toHaveBeenCalledWith(
-        MessageDto,
-        resultFromService,
-      );
+      expect(mapDataSpy).toHaveBeenCalledWith(MessageDto, resultFromService);
     });
 
     it('should return the value from the mapper', () => {
