@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S3 Presigned URLs Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            font-family: monospace;
+            word-break: break-all;
+        }
+        input[type="file"], input[type="text"] {
+            margin: 10px 0;
+            padding: 8px;
+            width: 100%;
+            max-width: 400px;
+        }
+    </style>
+</head>
+<body>
+    <h1>S3 Presigned URLs Demo</h1>
+    
+    <div class="section">
+        <h2>1. Authentication</h2>
+        <p>First, you need to authenticate and get a JWT token:</p>
+        <input type="text" id="authToken" placeholder="Enter your JWT token here">
+        <button class="button" onclick="setToken()">Set Token</button>
+        <div id="tokenStatus" class="result">No token set</div>
+    </div>
+
+    <div class="section">
+        <h2>2. Upload File with Presigned URL</h2>
+        <input type="file" id="fileInput" accept="*/*">
+        <button class="button" onclick="uploadWithPresignedUrl()">Upload File</button>
+        <div id="uploadResult" class="result">Select a file and click upload</div>
+    </div>
+
+    <div class="section">
+        <h2>3. Generate Download URL</h2>
+        <input type="text" id="s3Key" placeholder="Enter S3 key (from upload result)">
+        <button class="button" onclick="generateDownloadUrl()">Generate Download URL</button>
+        <div id="downloadResult" class="result">Enter an S3 key and click generate</div>
+    </div>
+
+    <div class="section">
+        <h2>4. API Usage Examples</h2>
+        <h3>Get Presigned Upload URL:</h3>
+        <pre class="result">
+POST /files/presigned-upload
+Authorization: Bearer &lt;token&gt;
+Content-Type: application/json
+
+{
+  "fileName": "example.jpg",
+  "fileType": "image/jpeg",
+  "expiresIn": 3600
+}
+        </pre>
+
+        <h3>Upload directly to S3:</h3>
+        <pre class="result">
+PUT &lt;presigned-upload-url&gt;
+Content-Type: image/jpeg
+
+&lt;file-data&gt;
+        </pre>
+
+        <h3>Get Presigned Download URL:</h3>
+        <pre class="result">
+POST /files/presigned-download
+Authorization: Bearer &lt;token&gt;
+Content-Type: application/json
+
+{
+  "key": "uploads/user-123/uuid-example.jpg",
+  "expiresIn": 3600
+}
+        </pre>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000'; // Adjust to your backend URL
+        let authToken = '';
+
+        function setToken() {
+            authToken = document.getElementById('authToken').value;
+            document.getElementById('tokenStatus').textContent = authToken ? 'Token set' : 'No token set';
+        }
+
+        async function uploadWithPresignedUrl() {
+            if (!authToken) {
+                alert('Please set your authentication token first');
+                return;
+            }
+
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a file');
+                return;
+            }
+
+            try {
+                // Step 1: Get presigned upload URL
+                document.getElementById('uploadResult').textContent = 'Getting presigned URL...';
+                
+                const uploadUrlResponse = await fetch(`${API_BASE}/files/presigned-upload`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        fileName: file.name,
+                        fileType: file.type
+                    })
+                });
+
+                if (!uploadUrlResponse.ok) {
+                    throw new Error(`Failed to get upload URL: ${uploadUrlResponse.statusText}`);
+                }
+
+                const { uploadUrl, key } = await uploadUrlResponse.json();
+                document.getElementById('uploadResult').textContent = `Got upload URL, uploading file...`;
+
+                // Step 2: Upload file directly to S3
+                const uploadResponse = await fetch(uploadUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': file.type
+                    },
+                    body: file
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error(`Failed to upload file: ${uploadResponse.statusText}`);
+                }
+
+                document.getElementById('uploadResult').textContent = 
+                    `File uploaded successfully!\nS3 Key: ${key}\nUpload URL: ${uploadUrl}`;
+                
+                // Set the key in the download section for convenience
+                document.getElementById('s3Key').value = key;
+
+            } catch (error) {
+                document.getElementById('uploadResult').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function generateDownloadUrl() {
+            if (!authToken) {
+                alert('Please set your authentication token first');
+                return;
+            }
+
+            const key = document.getElementById('s3Key').value;
+            if (!key) {
+                alert('Please enter an S3 key');
+                return;
+            }
+
+            try {
+                document.getElementById('downloadResult').textContent = 'Generating download URL...';
+
+                const response = await fetch(`${API_BASE}/files/presigned-download`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        key: key,
+                        expiresIn: 3600
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to generate download URL: ${response.statusText}`);
+                }
+
+                const { downloadUrl } = await response.json();
+                document.getElementById('downloadResult').innerHTML = 
+                    `Download URL generated successfully!<br>
+                    <a href="${downloadUrl}" target="_blank">Click here to download</a><br>
+                    URL: ${downloadUrl}`;
+
+            } catch (error) {
+                document.getElementById('downloadResult').textContent = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

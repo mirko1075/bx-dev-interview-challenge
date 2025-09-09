@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3 } from 'aws-sdk';
+import {
+  S3Client,
+  GetObjectCommand,
+  PutObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuid } from 'uuid';
 
 interface PresignedUrlResponse {
@@ -10,8 +16,8 @@ interface PresignedUrlResponse {
 
 @Injectable()
 export class S3Service {
-  private readonly s3: S3;
-  private readonly bucket: string;
+  private readonly s3Client: S3Client;
+  private readonly bucketName: string;
   private readonly logger = new Logger(S3Service.name);
 
   constructor(private readonly configService: ConfigService) {
@@ -23,82 +29,114 @@ export class S3Service {
       `S3 Configuration: endpoint=${endpoint}, keyId=${accessKeyId ? 'SET' : 'NOT_SET'}`,
     );
 
-    this.s3 = new S3({
-      endpoint: endpoint,
-      accessKeyId: accessKeyId,
-      secretAccessKey: secretAccessKey,
-      s3ForcePathStyle: true,
-      signatureVersion: 'v4',
-      region: 'us-east-1',
-    });
-    this.bucket =
+    if (!accessKeyId || !secretAccessKey) {
+      throw new Error('S3 credentials are required');
+    }
+
+    this.bucketName =
       configService.get<string>('S3_BUCKET_NAME') || 'my-app-bucket';
+
+    this.s3Client = new S3Client({
+      region: configService.get<string>('AWS_REGION', 'us-east-1'),
+      endpoint: endpoint,
+      credentials: {
+        accessKeyId: accessKeyId,
+        secretAccessKey: secretAccessKey,
+      },
+      forcePathStyle: true,
+    });
   }
 
-  async configureCors() {
-    const corsParams: S3.Types.PutBucketCorsRequest = {
-      Bucket: this.bucket,
-      CORSConfiguration: {
-        CORSRules: [
-          {
-            AllowedHeaders: ['*'],
-            AllowedMethods: ['GET', 'PUT', 'POST', 'DELETE'],
-            AllowedOrigins: ['http://localhost:3001', 'http://localhost:8080'],
-            ExposeHeaders: ['ETag'],
-            MaxAgeSeconds: 3000,
-          },
-        ],
-      },
-    };
+  // Helper method to replace hostname for frontend access
+  private replaceHostnameForFrontend(url: string): string {
+    // Replace internal Docker hostname with localhost for frontend access
+    let modifiedUrl = url.replace('storage.local', 'localhost');
+
+    // Also handle case where the URL might have the IP or other hostnames
+    modifiedUrl = modifiedUrl.replace('s3ninja', 'localhost');
+
+    this.logger.debug(`URL hostname replacement: ${url} -> ${modifiedUrl}`);
+    return modifiedUrl;
+  }
+
+  async generatePresignedUploadUrl(
+    fileName: string,
+    fileType: string,
+    userId: string,
+    expiresIn: number = 3600, // 1 hour default
+  ): Promise<{ uploadUrl: string; key: string }> {
+    // Use simpler key format for S3ninja compatibility
+    const key = `${uuid()}-${fileName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+      ContentType: fileType,
+    });
 
     try {
-      await this.s3.createBucket({ Bucket: this.bucket }).promise();
-      this.logger.log(`Bucket ${this.bucket} created or already exists.`);
+      let uploadUrl = await getSignedUrl(this.s3Client, command, {
+        expiresIn,
+      });
 
-      await this.s3.putBucketCors(corsParams).promise();
-      this.logger.log(
-        `Successfully configured CORS for bucket: ${this.bucket}`,
-      );
+      // Replace hostname for local development if needed
+      uploadUrl = this.replaceHostnameForFrontend(uploadUrl);
+
+      return {
+        uploadUrl,
+        key,
+      };
     } catch (error) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        (error as { code?: string }).code === 'NoSuchBucket'
-      ) {
-        this.logger.warn(
-          `Bucket ${this.bucket} does not exist yet. It will be created on first upload. CORS will be set then.`,
-        );
-      } else if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        (error as { code?: string }).code !== 'BucketAlreadyOwnedByYou'
-      ) {
-        this.logger.error(
-          'Error setting CORS configuration',
-          (error as { stack?: string }).stack,
-        );
-      } else {
-        try {
-          await this.s3.putBucketCors(corsParams).promise();
-          this.logger.log(
-            `Successfully configured CORS for existing bucket: ${this.bucket}`,
-          );
-        } catch (corsError) {
-          this.logger.error(
-            'Error setting CORS configuration on existing bucket',
-            typeof corsError === 'object' &&
-              corsError !== null &&
-              'stack' in corsError
-              ? (corsError as { stack?: string }).stack
-              : undefined,
-          );
-        }
-      }
+      this.logger.error('Error generating presigned upload URL:', error);
+      throw new Error('Failed to generate upload URL');
     }
   }
 
+  async generatePresignedDownloadUrl(
+    key: string,
+    expiresIn: number = 3600, // 1 hour default
+  ): Promise<string> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+    });
+
+    try {
+      let downloadUrl = await getSignedUrl(this.s3Client, command, {
+        expiresIn,
+      });
+
+      // Replace hostname for local development if needed
+      downloadUrl = this.replaceHostnameForFrontend(downloadUrl);
+
+      return downloadUrl;
+    } catch (error) {
+      this.logger.error('Error generating presigned download URL:', error);
+      throw new Error('Failed to generate download URL');
+    }
+  }
+
+  async deleteFile(key: string): Promise<void> {
+    const command = new DeleteObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+    });
+
+    try {
+      await this.s3Client.send(command);
+    } catch (error) {
+      this.logger.error('Error deleting file:', error);
+      throw new Error('Failed to delete file');
+    }
+  }
+
+  // Helper method to extract key from full S3 URL if needed
+  extractKeyFromUrl(url: string): string {
+    const urlObj = new URL(url);
+    return urlObj.pathname.substring(1); // Remove leading slash
+  }
+
+  // Legacy methods for backwards compatibility
   async getPresignedUploadUrl(
     filename: string,
     contentType?: string,
@@ -111,21 +149,28 @@ export class S3Service {
       `Generating presigned URL for ${filename}, contentType: ${finalContentType}`,
     );
 
-    const params = {
-      Bucket: this.bucket,
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
       Key: s3Key,
-      Expires: 60 * 5,
       ContentType: finalContentType,
-    };
+    });
 
-    let uploadUrl = await this.s3.getSignedUrlPromise('putObject', params);
-    uploadUrl = uploadUrl.replace('storage.local', 'localhost');
+    try {
+      let uploadUrl = await getSignedUrl(this.s3Client, command, {
+        expiresIn: 300, // 5 minutes
+      });
 
-    this.logger.log(
-      `Generated URL (first 100 chars): ${uploadUrl.substring(0, 100)}...`,
-    );
+      uploadUrl = this.replaceHostnameForFrontend(uploadUrl);
 
-    return { uploadUrl, key: s3Key };
+      this.logger.log(
+        `Generated URL (first 100 chars): ${uploadUrl.substring(0, 100)}...`,
+      );
+
+      return { uploadUrl, key: s3Key };
+    } catch (error) {
+      this.logger.error('Error generating presigned upload URL:', error);
+      throw new Error('Failed to generate upload URL');
+    }
   }
 
   async uploadFileDirect(
@@ -139,34 +184,67 @@ export class S3Service {
       `Uploading file directly: ${filename}, contentType: ${contentType}`,
     );
 
-    await this.s3
-      .putObject({
-        Bucket: this.bucket,
-        Key: s3Key,
-        Body: buffer,
-        ContentType: contentType,
-      })
-      .promise();
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: s3Key,
+      Body: buffer,
+      ContentType: contentType,
+    });
 
-    this.logger.log(`File uploaded successfully: ${s3Key}`);
-    return s3Key;
+    try {
+      await this.s3Client.send(command);
+      this.logger.log(`File uploaded successfully: ${s3Key}`);
+      return s3Key;
+    } catch (error) {
+      this.logger.error('Error uploading file:', error);
+      throw new Error('Failed to upload file');
+    }
   }
 
-  getFileStream(s3Key: string) {
+  async getFileStream(s3Key: string) {
     this.logger.log(`Getting file stream for key: ${s3Key}`);
 
-    const params = {
-      Bucket: this.bucket,
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
       Key: s3Key,
-    };
+    });
 
-    // Return the readable stream directly from S3
-    return this.s3.getObject(params).createReadStream();
+    try {
+      const response = await this.s3Client.send(command);
+
+      if (!response.Body) {
+        throw new Error('No file content received');
+      }
+
+      return response.Body;
+    } catch (error) {
+      this.logger.error('Error getting file stream:', error);
+      throw new Error('Failed to get file stream');
+    }
   }
 
   async testConnection(): Promise<boolean> {
     try {
-      await this.s3.listBuckets().promise();
+      // Simple test to check if we can access the S3 service
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: 'test-connection',
+      });
+
+      try {
+        await this.s3Client.send(command);
+      } catch (error) {
+        // If it's a "NoSuchKey" error, the connection is working
+        if (
+          error &&
+          typeof error === 'object' &&
+          'name' in error &&
+          error.name === 'NoSuchKey'
+        ) {
+          return true;
+        }
+        throw error;
+      }
       return true;
     } catch (error) {
       this.logger.error('S3 connection test failed:', error);

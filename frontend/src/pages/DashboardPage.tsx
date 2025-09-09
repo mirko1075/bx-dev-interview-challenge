@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button, Container, Typography, Box, Divider, AppBar, Toolbar } from '@mui/material';
 import { useAuth } from '@/context/AuthContext';
 import { UploadForm } from '@/components/UploadForm';
+import { PresignedUploadComponent } from '@/components/PresignedUploadComponent';
 import FileList from '@/components/FileList';
 
 export const DashboardPage = () => {
@@ -35,6 +36,8 @@ export const DashboardPage = () => {
 
 
         <UploadForm onUploadSuccess={handleUploadSuccess} />
+
+        <PresignedUploadComponent onUploadSuccess={handleUploadSuccess} />
 
         <Divider sx={{ my: 4 }} />
 

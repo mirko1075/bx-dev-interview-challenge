@@ -3,17 +3,19 @@ interface IFile {
   filename: string;
   mimetype: string;
   size: number;
+  s3Key: string;
   createdAt: string;
 }
 
 interface GetPresignedUrlPayload {
-  filename: string;
+  fileName: string;
   fileType: string;
+  expiresIn?: number;
 }
 
 interface PresignedUrlResponse {
   uploadUrl: string;
-  file: IFile;
+  key: string;
 }
 
 

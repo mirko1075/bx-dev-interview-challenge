@@ -8,13 +8,11 @@ import {
   Logger,
   UseInterceptors,
   UploadedFile,
-  Res,
   UseFilters,
   Body,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { User } from '@/entities/user.entity';
@@ -24,6 +22,9 @@ import { ChunkedUploadService } from '@/services/files/chunked-upload.service';
 import { FileValidationService } from '@/services/files/file-validation.service';
 import { FilesService } from '@/services/files/files.service';
 import { ImageCompressionService } from '@/services/files/image-compression.service';
+import { S3Service } from '@/services/files/s3.service';
+import { PresignedUploadDto } from '@/dtos/presigned-upload.dto';
+import { PresignedDownloadDto } from '@/dtos/presigned-download.dto';
 import { AuthGuard } from '@nestjs/passport';
 
 @Controller('files')
@@ -35,8 +36,70 @@ export class FilesController {
     private readonly imageCompressionService: ImageCompressionService,
     private readonly chunkedUploadService: ChunkedUploadService,
     private readonly cacheService: CacheService,
+    private readonly s3Service: S3Service,
   ) {}
   private readonly logger = new Logger(FilesController.name);
+
+  // Presigned URL endpoints
+  @UseGuards(AuthGuard('jwt'))
+  @Post('presigned-upload')
+  @HttpCode(HttpStatus.OK)
+  async getPresignedUploadUrl(
+    @Body() body: PresignedUploadDto,
+    @Req() req: { user: User },
+  ) {
+    const { fileName, fileType, expiresIn = 3600 } = body;
+    const user = req.user;
+
+    this.logger.log(
+      `Generating presigned upload URL for file: ${fileName}, type: ${fileType}, user: ${user.id}`,
+    );
+
+    return await this.s3Service.generatePresignedUploadUrl(
+      fileName,
+      fileType,
+      user.id,
+      expiresIn,
+    );
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('presigned-download')
+  @HttpCode(HttpStatus.OK)
+  async getPresignedDownloadUrl(
+    @Body() body: PresignedDownloadDto,
+    @Req() req: { user: User },
+  ) {
+    const { key, expiresIn = 3600 } = body;
+    const user = req.user;
+
+    this.logger.log(
+      `Generating presigned download URL for key: ${key}, user: ${user.id}`,
+    );
+
+    const downloadUrl = await this.s3Service.generatePresignedDownloadUrl(
+      key,
+      expiresIn,
+    );
+
+    return { downloadUrl, key };
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('delete/:key')
+  @HttpCode(HttpStatus.OK)
+  async deleteFile(@Param('key') key: string, @Req() req: { user: User }) {
+    const user = req.user;
+
+    this.logger.log(`Deleting file with key: ${key}, user: ${user.id}`);
+
+    await this.s3Service.deleteFile(key);
+
+    // Clear user's file cache
+    this.cacheService.delete(`files:user:${user.id}`);
+
+    return { success: true, message: 'File deleted successfully' };
+  }
 
   @UseGuards(AuthGuard('jwt'))
   @Post('upload')
@@ -237,23 +300,30 @@ export class FilesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Get(':id/download')
-  async downloadFile(
-    @Param('id') fileId: string,
-    @Req() req: { user: User },
-    @Res() res: Response,
-  ) {
+  async downloadFile(@Param('id') fileId: string, @Req() req: { user: User }) {
     const user = req.user;
-    this.logger.log(`Downloading file: ${fileId} for user: ${user.id}`);
+    this.logger.log(
+      `Getting download URL for file: ${fileId}, user: ${user.id}`,
+    );
 
-    const fileStream = await this.filesService.downloadFile(fileId, user);
+    // Get file metadata to verify ownership
+    const file = await this.filesService.getFileById(fileId, user);
 
-    // Set appropriate headers
-    res.set({
-      'Content-Type': fileStream.mimetype,
-      'Content-Disposition': `attachment; filename="${fileStream.filename}"`,
-    });
+    if (!file) {
+      throw new Error('File not found or access denied');
+    }
 
-    // Pipe the file stream to response
-    fileStream.stream.pipe(res);
+    // Generate presigned download URL
+    const downloadUrl = await this.s3Service.generatePresignedDownloadUrl(
+      file.s3Key,
+      3600, // 1 hour expiry
+    );
+
+    return {
+      downloadUrl,
+      filename: file.filename,
+      mimetype: file.mimetype,
+      size: file.size,
+    };
   }
 }

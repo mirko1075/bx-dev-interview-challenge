@@ -66,6 +66,24 @@ export class FilesService {
     }
   }
 
+  async getFileById(fileId: string, user: User) {
+    try {
+      const file = await this.fileRepository.findOne({
+        where: { id: fileId, user: { id: user.id } },
+      });
+
+      if (!file) {
+        throw new Error('File not found or access denied');
+      }
+
+      return file;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to get file: ${errorMessage}`);
+    }
+  }
+
   async downloadFile(fileId: string, user: User) {
     try {
       // Verifica che il file appartenga all'utente
@@ -77,7 +95,7 @@ export class FilesService {
         throw new Error('File not found or access denied');
       }
 
-      const fileStream = this.s3Service.getFileStream(file.s3Key);
+      const fileStream = await this.s3Service.getFileStream(file.s3Key);
 
       return {
         stream: fileStream,

@@ -17,7 +17,52 @@ export const getValidationConfig = async (): Promise<FileValidationConfig> => {
 export const getPresignedUploadUrl = async (
   payload: GetPresignedUrlPayload,
 ): Promise<PresignedUrlResponse> => {
-  return api.post<PresignedUrlResponse>('/files/presigned-url', payload);
+  return api.post<PresignedUrlResponse>('/files/presigned-upload', payload);
+};
+
+// Get presigned download URL from backend
+export const getPresignedDownloadUrl = async (
+  key: string,
+  expiresIn?: number,
+): Promise<{ downloadUrl: string; key: string }> => {
+  return api.post<{ downloadUrl: string; key: string }>('/files/presigned-download', {
+    key,
+    expiresIn,
+  });
+};
+
+// Upload file directly to S3 using presigned URL
+export const uploadFileWithPresignedUrl = async (
+  presignedUrl: string,
+  file: File,
+  onProgress?: (progress: number) => void,
+): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        const percentComplete = Math.round((event.loaded * 100) / event.total);
+        onProgress(percentComplete);
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        reject(new Error(`S3 upload failed with status: ${xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error('Network error during S3 upload'));
+    };
+
+    xhr.open('PUT', presignedUrl);
+    xhr.setRequestHeader('Content-Type', file.type);
+    xhr.send(file);
+  });
 };
 
 export { uploadWithProgress };

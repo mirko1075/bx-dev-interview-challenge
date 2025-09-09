@@ -13,9 +13,14 @@ import {
   Alert,
   IconButton,
   Chip,
+  ButtonGroup,
 } from '@mui/material';
-import { Download as DownloadIcon, Refresh as RefreshIcon } from '@mui/icons-material';
-import { getFiles } from '@/services/files.service';
+import { 
+  Download as DownloadIcon, 
+  Refresh as RefreshIcon,
+  Link as LinkIcon 
+} from '@mui/icons-material';
+import { getFiles, getPresignedDownloadUrl } from '@/services/files.service';
 import { IFile } from '@/types';
 
 interface FileListProps {
@@ -85,6 +90,28 @@ const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
       setDownloadingIds(prev => {
         const newSet = new Set(prev);
         newSet.delete(fileId);
+        return newSet;
+      });
+    }
+  };
+
+  const handlePresignedDownload = async (file: IFile) => {
+    try {
+      setDownloadingIds(prev => new Set(prev).add(file.id));
+      
+      // Get presigned download URL
+      const { downloadUrl } = await getPresignedDownloadUrl(file.s3Key);
+      
+      // Open the presigned URL directly - browser will handle the download
+      window.open(downloadUrl, '_blank');
+      
+    } catch (err) {
+      setError(`Failed to generate download link for ${file.filename}. Please try again.`);
+      console.error('Error generating presigned download URL:', err);
+    } finally {
+      setDownloadingIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(file.id);
         return newSet;
       });
     }
@@ -180,15 +207,24 @@ const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
                   <TableCell>{formatFileSize(file.size)}</TableCell>
                   <TableCell>{formatDate(file.createdAt)}</TableCell>
                   <TableCell align="center">
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<DownloadIcon />}
-                      onClick={() => handleDownload(file.id, file.filename)}
-                      disabled={downloadingIds.has(file.id)}
-                    >
-                      {downloadingIds.has(file.id) ? 'Downloading...' : 'Download'}
-                    </Button>
+                    <ButtonGroup variant="outlined" size="small">
+                      <Button
+                        startIcon={<DownloadIcon />}
+                        onClick={() => handleDownload(file.id, file.filename)}
+                        disabled={downloadingIds.has(file.id)}
+                        title="Direct download through server"
+                      >
+                        {downloadingIds.has(file.id) ? 'Downloading...' : 'Download'}
+                      </Button>
+                      <Button
+                        startIcon={<LinkIcon />}
+                        onClick={() => handlePresignedDownload(file)}
+                        disabled={downloadingIds.has(file.id)}
+                        title="Download with presigned URL (direct from S3)"
+                      >
+                        Presigned
+                      </Button>
+                    </ButtonGroup>
                   </TableCell>
                 </TableRow>
               ))}
